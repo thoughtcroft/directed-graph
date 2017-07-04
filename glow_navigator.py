@@ -16,6 +16,7 @@ from builtins import input
 import glob
 import pdb
 import re
+import time
 import xml.etree.ElementTree as ET
 import yaml
 
@@ -29,8 +30,10 @@ GLOW_OBJECTS = {
         "fields": {
             "guid": "VM_PK",
             "name": "VM_Name",
-            "is_active": "VM_IsActive",
             "entity": "VM_EntityType",
+            "form_factor": "VM_FormFactor",
+            "is_active": "VM_IsActive",
+            "usage": "VM_Usage",
             "tasks": "BPMTaskTmpls"
             }
         },
@@ -40,8 +43,10 @@ GLOW_OBJECTS = {
         "fields": {
             "guid": "VZ_PK",
             "name": "VZ_FormID",
-            "is_active": "VZ_IsActive",
             "entity": "VZ_EntityType",
+            "form_factor": "VZ_FormFactor",
+            "is_active": "VZ_IsActive",
+            "type": "VZ_FormType",
             "data": "VZ_FormData"
             }
         },
@@ -50,10 +55,11 @@ GLOW_OBJECTS = {
         "fields": {
             "guid": "VR_PK",
             "name": "VR_Description",
-            "is_active": "VR_IsActive",
+            "entity": "VR_DataContextOverride",
             "task_type": "VR_Type",
+            "formflow": "VR_VM_JumpToWorkflowTemplate",
             "template": "VR_VZ_Form",
-            "formflow": "VR_VM_JumpToWorkflowTemplate"
+            "is_active": "VR_IsActive"
             }
         }
     }
@@ -85,7 +91,7 @@ class GlowObject(object):
         call my_obj.baz to obtain "bar"
         """
         field = attr
-        if attr in self.fields.keys():
+        if attr in self.fields:
             field = self.fields[attr]
         try:
             return self.values[field]
@@ -98,9 +104,14 @@ class GlowObject(object):
         Returns a limited subset of values: those that
         have keys mapped in the fields dictionary
         """
-        return {k : self.values[v]
-                for k, v in self.fields.iteritems()
-                if v in self.values.keys()}
+        mapping = {k : self.values[v]
+                   for k, v in self.fields.iteritems()
+                   if v in self.values}
+        # add type and remove noisy attributes
+        mapping["type"] = self.type
+        for attr in ("data", "tasks"):
+            mapping.pop(attr, None)
+        return mapping
 
 
 class XMLParser(object):
@@ -141,9 +152,9 @@ class XMLParser(object):
             if remove_xmlns(elem.tag) != "Placeholder":
                 continue
             e_dict = elem.attrib
-            if "ResKey" in e_dict.keys():
+            if "ResKey" in e_dict:
                 ph_dict["guid"] = e_dict["ResKey"]
-            if e_dict["Value"] and e_dict["Name"] in self.TOPICS.keys():
+            if e_dict["Value"] and e_dict["Name"] in self.TOPICS:
                 key = self.TOPICS[e_dict["Name"]]
                 ph_dict[key] = e_dict["Value"]
         return ph_dict
@@ -170,7 +181,7 @@ def glow_file_objects():
     """Return the glow objects with files
     """
     return (v for _, v in GLOW_OBJECTS.iteritems()
-            if "path" in v.keys())
+            if "path" in v)
 
 def create_graph():
     """Create directed graph of objects
@@ -194,9 +205,12 @@ def create_graph():
             if glow_object.type == "Template" and glow_object.data:
                 xml_parser = XMLParser(glow_object.data)
                 for tile in xml_parser.iterfind("Tile"):
-                    if "template" in tile.keys():
+                    tile["type"] = "Tile"
+                    if not "entity" in tile:
+                        tile["entity"] = glow_object.entity
+                    if "template" in tile:
                         graph.add_edge(glow_object.guid, tile["template"], tile)
-                    elif "formflow" in tile.keys():
+                    elif "formflow" in tile:
                         graph.add_edge(glow_object.guid, tile["formflow"], tile)
                 continue
     return graph
@@ -204,10 +218,44 @@ def create_graph():
 def main():
     """Provide navigation of the selected Glow objects
     """
+    print()
+    print("Generating directed graph...")
+    start_time = time.time()
     graph = create_graph()
-
+    end_time = time.time()
+    elapsed_time = round(end_time - start_time)
+    print("Graph generated in {} seconds".format(elapsed_time))
+    print()
     print(nx.info(graph))
-    pdb.set_trace()
+
+    # use this for example navigation
+    page_guid = "0e604158-7756-49fd-84da-2f82d94c9069"
+    print()
+    print("Example node: {}".format(page_guid))
+    print()
+    print(graph.node[page_guid])
+
+    for node in graph.successors(page_guid):
+        edge = graph.get_edge_data(page_guid, node)
+        print()
+        print("-> calls : {}".format(graph.node[node]))
+        print("     via : {}".format(edge))
+
+    # referenced guids without files
+    print()
+    print("These nodes have no data:")
+    for node in graph:
+        if "type" not in graph.node[node]:
+            print()
+            print(node)
+            caller = graph.predecessors(node)[0]
+            edge = graph.get_edge_data(caller, node)
+            print()
+            print("-> from : {}".format(graph.node[caller]))
+            print("    via : {}".format(edge))
+
+    print()
+    # pdb.set_trace()
 
 if __name__ == "__main__":
     main()
