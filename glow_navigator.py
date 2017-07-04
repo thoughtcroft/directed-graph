@@ -149,6 +149,8 @@ class XMLParser(object):
         return ph_dict
 
 
+# global functions
+
 def raw_guid(guid):
     """Remove hyphens from string guid
     """
@@ -170,8 +172,7 @@ def glow_file_objects():
     return (v for _, v in GLOW_OBJECTS.iteritems()
             if "path" in v.keys())
 
-
-def main():
+def create_graph():
     """Create directed graph of objects
     """
     graph = nx.DiGraph(name="Glow")
@@ -198,9 +199,13 @@ def main():
                     elif "formflow" in tile.keys():
                         graph.add_edge(glow_object.guid, tile["formflow"], tile)
                 continue
+    return graph
 
+def main():
+    """Provide navigation of the selected Glow objects
+    """
+    graph = create_graph()
 
-    # print our graph
     print(nx.info(graph))
     pdb.set_trace()
 
