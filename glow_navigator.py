@@ -28,38 +28,38 @@ GLOW_OBJECTS = {
         "path": "BPMWorkflowTmpl/*.yaml",
         "type": "Formflow",
         "fields": {
-            "guid": "VM_PK",
-            "name": "VM_Name",
-            "entity": "VM_EntityType",
+            "guid":        "VM_PK",
+            "name":        "VM_Name",
+            "entity":      "VM_EntityType",
             "form_factor": "VM_FormFactor",
-            "is_active": "VM_IsActive",
-            "usage": "VM_Usage",
-            "tasks": "BPMTaskTmpls"
+            "is_active":   "VM_IsActive",
+            "usage":       "VM_Usage",
+            "tasks":       "BPMTaskTmpls"
             }
         },
     "Template": {
         "path": "BPMForm/*.yaml",
         "type": "Template",
         "fields": {
-            "guid": "VZ_PK",
-            "name": "VZ_FormID",
-            "entity": "VZ_EntityType",
+            "guid":        "VZ_PK",
+            "name":        "VZ_FormID",
+            "entity":      "VZ_EntityType",
             "form_factor": "VZ_FormFactor",
-            "is_active": "VZ_IsActive",
-            "type": "VZ_FormType",
-            "data": "VZ_FormData"
+            "is_active":   "VZ_IsActive",
+            "type":        "VZ_FormType",
+            "data":        "VZ_FormData"
             }
         },
     "Task": {
         "type": "Task",
         "fields": {
-            "guid": "VR_PK",
-            "name": "VR_Description",
-            "entity": "VR_DataContextOverride",
-            "task_type": "VR_Type",
-            "formflow": "VR_VM_JumpToWorkflowTemplate",
-            "template": "VR_VZ_Form",
-            "is_active": "VR_IsActive"
+            "guid":        "VR_PK",
+            "name":        "VR_Description",
+            "entity":      "VR_DataContextOverride",
+            "task_type":   "VR_Type",
+            "formflow":    "VR_VM_JumpToWorkflowTemplate",
+            "template":    "VR_VZ_Form",
+            "is_active":   "VR_IsActive"
             }
         }
     }
@@ -86,7 +86,7 @@ class GlowObject(object):
         properties e.g. {"foo": "bar"} can be
         accessed as my_obj.foo.
 
-        Also uses the friednly mapping such that
+        Also uses the friendly mapping such that
         if "foo" is mapped to "baz" then we can
         call my_obj.baz to obtain "bar"
         """
@@ -119,10 +119,10 @@ class XMLParser(object):
     """Glow Template XML parser
     """
     TOPICS = {
-        "Text": "name",
-        "Description": "description",
-        "PagePK": "template",
-        "Workflow": "formflow"
+        "Text":         "name",
+        "Description":  "description",
+        "PagePK":       "template",
+        "Workflow":     "formflow"
         }
 
     def __init__(self, xml):
@@ -185,6 +185,10 @@ def glow_file_objects():
 
 def create_graph():
     """Create directed graph of objects
+
+    Each Glow object is added as a node
+    to the graph and references are added
+    as edges from caller to callee
     """
     graph = nx.DiGraph(name="Glow")
     for attrs in glow_file_objects():
@@ -215,6 +219,46 @@ def create_graph():
                 continue
     return graph
 
+def missing_nodes(graph):
+    """Return data on nodes without data
+
+    Indicates those nodes referenced in edges but which
+    had were not added from files so represent orphan
+    references from within other objects
+    """
+    print()
+    print("These nodes have no data:")
+    for node in graph:
+        if "type" not in graph.node[node]:
+            print()
+            print(node)
+            caller = graph.predecessors(node)[0]
+            edge = graph.get_edge_data(caller, node)
+            print()
+            print("-> from : {}".format(graph.node[caller]))
+            print("    via : {}".format(edge))
+
+def pindent(text, level):
+    """Indent print by specified level"""
+    print("{}{}{}".format(level, "  " * level, text))
+
+def print_tree(graph, parent, seen=None, level=0):
+    """Display all the reachable nodes from target"""
+    if seen is None:
+        seen = []
+    seen.append(parent)
+    pindent(graph.node[parent], level)
+    level += 1
+    for child in graph.successors(parent):
+        print()
+        edge_data = graph.get_edge_data(parent, child)
+        pindent(edge_data, level)
+        if child in seen:
+            pindent(" {} already seen".format(child), level)
+        else:
+            print_tree(graph, child, seen, level)
+
+
 def main():
     """Provide navigation of the selected Glow objects
     """
@@ -233,29 +277,10 @@ def main():
     print()
     print("Example node: {}".format(page_guid))
     print()
-    print(graph.node[page_guid])
-
-    for node in graph.successors(page_guid):
-        edge = graph.get_edge_data(page_guid, node)
-        print()
-        print("-> calls : {}".format(graph.node[node]))
-        print("     via : {}".format(edge))
-
-    # referenced guids without files
-    print()
-    print("These nodes have no data:")
-    for node in graph:
-        if "type" not in graph.node[node]:
-            print()
-            print(node)
-            caller = graph.predecessors(node)[0]
-            edge = graph.get_edge_data(caller, node)
-            print()
-            print("-> from : {}".format(graph.node[caller]))
-            print("    via : {}".format(edge))
+    print_tree(graph, page_guid)
 
     print()
-    # pdb.set_trace()
+    pdb.set_trace()
 
 if __name__ == "__main__":
     main()
