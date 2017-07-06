@@ -35,7 +35,10 @@ GLOW_OBJECTS = {
             "is_active":   "VM_IsActive",
             "usage":       "VM_Usage",
             "tasks":       "BPMTaskTmpls"
-            }
+            },
+        "display": [
+            "name", "type", "entity"
+            ]
         },
     "Template": {
         "path": "BPMForm/*.yaml",
@@ -48,7 +51,10 @@ GLOW_OBJECTS = {
             "is_active":   "VZ_IsActive",
             "type":        "VZ_FormType",
             "data":        "VZ_FormData"
-            }
+            },
+        "display": [
+            "name", "type", "entity"
+            ]
         },
     "Task": {
         "type": "Task",
@@ -56,11 +62,14 @@ GLOW_OBJECTS = {
             "guid":        "VR_PK",
             "name":        "VR_Description",
             "entity":      "VR_DataContextOverride",
-            "task_type":   "VR_Type",
+            "task":        "VR_Type",
             "formflow":    "VR_VM_JumpToWorkflowTemplate",
             "template":    "VR_VZ_Form",
             "is_active":   "VR_IsActive"
-            }
+            },
+        "display": [
+            "name", "type", "task", "entity"
+            ]
         }
     }
 
@@ -109,7 +118,7 @@ class GlowObject(object):
                    if v in self.values}
         # add type and remove noisy attributes
         mapping["type"] = self.type
-        for attr in ("data", "tasks"):
+        for attr in ("data", "guid", "tasks"):
             mapping.pop(attr, None)
         return mapping
 
@@ -152,8 +161,6 @@ class XMLParser(object):
             if remove_xmlns(elem.tag) != "Placeholder":
                 continue
             e_dict = elem.attrib
-            if "ResKey" in e_dict:
-                ph_dict["guid"] = e_dict["ResKey"]
             if e_dict["Value"] and e_dict["Name"] in self.TOPICS:
                 key = self.TOPICS[e_dict["Name"]]
                 ph_dict[key] = e_dict["Value"]
@@ -183,6 +190,16 @@ def glow_file_objects():
     return (v for _, v in GLOW_OBJECTS.iteritems()
             if "path" in v)
 
+def display_properties(g_dict):
+    """Node or edge properties for display
+    """
+    if g_dict["type"] in GLOW_OBJECTS:
+        d_dict = GLOW_OBJECTS[g_dict["type"]]
+        return {k: g_dict[k]
+                for k in d_dict["display"]
+                if k in g_dict}
+    return g_dict
+
 def create_graph():
     """Create directed graph of objects
 
@@ -200,9 +217,9 @@ def create_graph():
             if glow_object.type == "Formflow" and glow_object.tasks:
                 for task in glow_object.tasks:
                     go_task = GlowObject(GLOW_OBJECTS["Task"], task)
-                    if go_task.task_type == "FRM":
+                    if go_task.task == "FRM":
                         graph.add_edge(glow_object.guid, go_task.template, go_task.map())
-                    elif go_task.task_type == "JMP":
+                    elif go_task.task == "JMP":
                         graph.add_edge(glow_object.guid, go_task.formflow, go_task.map())
                 continue
 
@@ -240,21 +257,23 @@ def missing_nodes(graph):
 
 def pindent(text, level):
     """Indent print by specified level"""
-    print("{}{}{}".format(level, "  " * level, text))
+    print("{} {}{}".format(level, "  " * level, text))
 
 def print_tree(graph, parent, seen=None, level=0):
     """Display all the reachable nodes from target"""
     if seen is None:
         seen = []
     seen.append(parent)
-    pindent(graph.node[parent], level)
+    node_data = display_properties(graph.node[parent])
+    pindent(node_data, level)
     level += 1
     for child in graph.successors(parent):
         print()
-        edge_data = graph.get_edge_data(parent, child)
+        edge_data = display_properties(graph.get_edge_data(parent, child))
         pindent(edge_data, level)
         if child in seen:
-            pindent(" {} already seen".format(child), level)
+            c_dict = graph.node[child]
+            pindent("  {} '{}' already seen".format(c_dict["type"], c_dict["name"]), level)
         else:
             print_tree(graph, child, seen, level)
 

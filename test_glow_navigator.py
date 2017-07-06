@@ -1,13 +1,19 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+"""Glow Navigator Unit Tests
+"""
+
 import unittest
 from ddt import ddt, data, unpack
 
-from glow_navigator import *
+from glow_navigator import (load_file, raw_guid,
+                            remove_xmlns, glow_file_objects,
+                            GlowObject, XMLParser,
+                            GLOW_OBJECTS)
 
 
-class YAMLTestCase(unittest.TestCase):
+class YAMLBase(unittest.TestCase):
     """Set up and tear down for the YAML files
     """
     def setUp(self):
@@ -23,19 +29,15 @@ class YAMLTestCase(unittest.TestCase):
         self.template = None
 
 @ddt
-class BaseTestCase(YAMLTestCase):
-    """Unit tests for general functions
+class YAMLTestCase(YAMLBase):
+    """Unit tests requiring YAML files
     """
-    @data(("1-2-3-4-5", "12345"), ("abc", "abc"), ("ab c5 / 0", "ab c5 / 0"))
-    @unpack
-    def test_raw_guid(self, first, second):
-        """Converts string guid to plain form without hyphens
-        """
-        self.assertEqual(raw_guid(first), second)
-
-    @data(("guid", "tic-tac-toe"), ("name", "My Test Template"),
-          ("type", "Template"), ("bar", None),
-          ("entity", "My Test Entity"), ("is_active", False))
+    @data(("guid", "tic-tac-toe"),
+          ("name", "My Test Template"),
+          ("type", "Template"),
+          ("bar", None),
+          ("entity", "My Test Entity"),
+          ("is_active", False))
     @unpack
     def test_template_attribs(self, first, second):
         """Retrieves an attribute from parsed yaml
@@ -43,9 +45,12 @@ class BaseTestCase(YAMLTestCase):
         value = getattr(self.template, first)
         self.assertEqual(value, second)
 
-    @data(("type", "Formflow"), ("guid", "foo-bar-baz"),
-          ("name", "My Test Formflow"), ("foo", None),
-          ("entity", "My Test Entity"), ("is_active", True))
+    @data(("type", "Formflow"),
+          ("guid", "foo-bar-baz"),
+          ("name", "My Test Formflow"),
+          ("foo", None),
+          ("entity", "My Test Entity"),
+          ("is_active", True))
     @unpack
     def test_formflow_attribs(self, first, second):
         """Retrieves an attribute from parsed yaml
@@ -54,8 +59,10 @@ class BaseTestCase(YAMLTestCase):
         self.assertEqual(value, second)
 
 
-    @data({"guid": "foo-bar-baz", "name": "My Test Formflow",
-           "entity": "My Test Entity", "is_active": True})
+    @data({"name":      "My Test Formflow",
+           "entity":    "My Test Entity",
+           "is_active": True,
+           "type":      "Formflow"})
     def test_value_map(self, result):
         """Returns a dictionary of mapped values
         """
@@ -65,6 +72,14 @@ class BaseTestCase(YAMLTestCase):
 class NonYAMLTestCase(unittest.TestCase):
     """Unit tests for code not dependent on YAML
     """
+    @data(("1-2-3-4-5", "12345"),
+          ("abc", "abc"),
+          ("ab c5 / 0", "ab c5 / 0"))
+    @unpack
+    def test_raw_guid(self, first, second):
+        """Converts string guid to plain form without hyphens
+        """
+        self.assertEqual(raw_guid(first), second)
 
     @data(("{http://schemas.microsoft.com/winfx/}UserControl", "UserControl"),
           ("no name space here", "no name space here"))
@@ -82,15 +97,16 @@ class NonYAMLTestCase(unittest.TestCase):
         self.assertEqual(target, result)
 
 
-    @data([{'guid': 'b7a3b8ec-3bf8-469a-a52b-4df9a5f9ad99', 'name': 'Order Manager', 'description': 'Order Manager'}])
+    @data([{"name":        "Order Manager",
+            "description": "Order Manager"}])
     def test_xml_handling(self, result):
         """Test that parsing a Template xml object works
         """
-        with open("test_data/test_xml.xml") as file:
-            xml_data = file.read()
+        with open("test_data/test_xml.xml") as xml_file:
+            xml_data = xml_file.read()
         parser = XMLParser(xml_data)
         target = list(parser.iterfind("Tile"))
         self.assertEqual(target, result)
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
