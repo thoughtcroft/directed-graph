@@ -22,11 +22,21 @@ import yaml
 
 # external libraries
 import networkx as nx
+from termcolor import colored
+
+
+COLOR_LOOKUP = {
+    "formflow": "green",
+    "template": "cyan",
+    "FRM":      "blue",
+    "JMP":      "red",
+    "tile":     "yellow"
+        }
 
 GLOW_OBJECTS = {
     "Formflow": {
-        "path": "BPMWorkflowTmpl/*.yaml",
-        "type": "Formflow",
+        "type":  "formflow",
+        "path":  "BPMWorkflowTmpl/*.yaml",
         "fields": {
             "guid":        "VM_PK",
             "name":        "VM_Name",
@@ -41,8 +51,8 @@ GLOW_OBJECTS = {
             ]
         },
     "Template": {
-        "path": "BPMForm/*.yaml",
-        "type": "Template",
+        "type":  "template",
+        "path":  "BPMForm/*.yaml",
         "fields": {
             "guid":        "VZ_PK",
             "name":        "VZ_FormID",
@@ -57,7 +67,7 @@ GLOW_OBJECTS = {
             ]
         },
     "Task": {
-        "type": "Task",
+        "type":  "task",
         "fields": {
             "guid":        "VR_PK",
             "name":        "VR_Description",
@@ -169,6 +179,10 @@ class XMLParser(object):
 
 # global functions
 
+def clear_screen():
+    """Clear the screen for better view"""
+    print("\033[H\033[J")
+
 def raw_guid(guid):
     """Remove hyphens from string guid
     """
@@ -214,7 +228,7 @@ def create_graph():
             glow_object = GlowObject(attrs, values)
             graph.add_node(glow_object.guid, glow_object.map())
 
-            if glow_object.type == "Formflow" and glow_object.tasks:
+            if glow_object.type == "formflow" and glow_object.tasks:
                 for task in glow_object.tasks:
                     go_task = GlowObject(GLOW_OBJECTS["Task"], task)
                     if go_task.task == "FRM":
@@ -223,10 +237,10 @@ def create_graph():
                         graph.add_edge(glow_object.guid, go_task.formflow, go_task.map())
                 continue
 
-            if glow_object.type == "Template" and glow_object.data:
+            if glow_object.type == "template" and glow_object.data:
                 xml_parser = XMLParser(glow_object.data)
                 for tile in xml_parser.iterfind("Tile"):
-                    tile["type"] = "Tile"
+                    tile["type"] = "tile"
                     if not "entity" in tile:
                         tile["entity"] = glow_object.entity
                     if "template" in tile:
@@ -255,9 +269,19 @@ def missing_nodes(graph):
             print("-> from : {}".format(graph.node[caller]))
             print("    via : {}".format(edge))
 
-def pindent(text, level):
-    """Indent print by specified level"""
+def pindent(text, level, color="white"):
+    """Indent print by specified level
+    """
+    text = colored(text, color)
     print("{} {}{}".format(level, "  " * level, text))
+
+def coloring(data_dict):
+    """Lookup data properties to determine the best color
+    """
+    for _, value in data_dict.iteritems():
+        if value in COLOR_LOOKUP:
+            return COLOR_LOOKUP[value]
+    return "white"
 
 def print_tree(graph, parent, seen=None, level=0):
     """Display all the reachable nodes from target"""
@@ -265,18 +289,25 @@ def print_tree(graph, parent, seen=None, level=0):
         seen = []
     seen.append(parent)
     node_data = display_properties(graph.node[parent])
-    pindent(node_data, level)
+    pindent(node_data, level, coloring(node_data))
     level += 1
     for child in graph.successors(parent):
         print()
         edge_data = display_properties(graph.get_edge_data(parent, child))
-        pindent(edge_data, level)
+        pindent(edge_data, level, coloring(edge_data))
         if child in seen:
-            c_dict = graph.node[child]
-            pindent("  {} '{}' already seen".format(c_dict["type"], c_dict["name"]), level)
+            pindent(graph.node[child], level, "white")
         else:
             print_tree(graph, child, seen, level)
 
+def print_parents(graph, node):
+    """Display all the predecessor nodes from target"""
+    for parent in graph.predecessors(node):
+        edge_data = display_properties(graph.get_edge_data(parent, node))
+        node_data = display_properties(graph.node[parent])
+        print()
+        pindent(edge_data, 0, coloring(edge_data))
+        pindent(node_data, 0, coloring(node_data))
 
 def main():
     """Provide navigation of the selected Glow objects
@@ -297,7 +328,10 @@ def main():
     print("Example node: {}".format(page_guid))
     print()
     print_tree(graph, page_guid)
-
+    print()
+    print("Node predecessors")
+    print()
+    print_parents(graph, page_guid)
     print()
     pdb.set_trace()
 

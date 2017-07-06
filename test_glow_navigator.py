@@ -10,7 +10,7 @@ from ddt import ddt, data, unpack
 from glow_navigator import (load_file, raw_guid,
                             remove_xmlns, glow_file_objects,
                             GlowObject, XMLParser,
-                            GLOW_OBJECTS)
+                            GLOW_OBJECTS, coloring)
 
 
 class YAMLBase(unittest.TestCase):
@@ -34,7 +34,7 @@ class YAMLTestCase(YAMLBase):
     """
     @data(("guid", "tic-tac-toe"),
           ("name", "My Test Template"),
-          ("type", "Template"),
+          ("type", "template"),
           ("bar", None),
           ("entity", "My Test Entity"),
           ("is_active", False))
@@ -45,7 +45,7 @@ class YAMLTestCase(YAMLBase):
         value = getattr(self.template, first)
         self.assertEqual(value, second)
 
-    @data(("type", "Formflow"),
+    @data(("type", "formflow"),
           ("guid", "foo-bar-baz"),
           ("name", "My Test Formflow"),
           ("foo", None),
@@ -96,7 +96,6 @@ class NonYAMLTestCase(unittest.TestCase):
         result = sorted([GLOW_OBJECTS["Formflow"], GLOW_OBJECTS["Template"]])
         self.assertEqual(target, result)
 
-
     @data([{"name":        "Order Manager",
             "description": "Order Manager"}])
     def test_xml_handling(self, result):
@@ -107,6 +106,16 @@ class NonYAMLTestCase(unittest.TestCase):
         parser = XMLParser(xml_data)
         target = list(parser.iterfind("Tile"))
         self.assertEqual(target, result)
+
+    @data(({"type": "formflow"}, "green"),
+          ({"foo": "bar"}, "white"),
+          ({"foo": "bar", "baz": "JMP"}, "red"))
+    @unpack
+    def test_coloring_lookup(self, first, second):
+        """Color is determined by dict values
+        """
+        self.assertEqual(coloring(first), second)
+
 
 if __name__ == "__main__":
     unittest.main()
