@@ -9,8 +9,9 @@ from ddt import ddt, data, unpack
 
 from glow_navigator import (load_file, raw_guid,
                             remove_xmlns, glow_file_objects,
-                            GlowObject, XMLParser,
-                            GLOW_OBJECTS, coloring)
+                            GlowObject, XMLParser, serialize,
+                            GLOW_OBJECTS, coloring, match,
+                            invalid_regex)
 
 
 class YAMLBase(unittest.TestCase):
@@ -18,9 +19,9 @@ class YAMLBase(unittest.TestCase):
     """
     def setUp(self):
         self.formflow_data = load_file("test_data/test_formflow.yaml")
-        self.formflow = GlowObject(GLOW_OBJECTS["Formflow"], self.formflow_data)
+        self.formflow = GlowObject(GLOW_OBJECTS["formflow"], self.formflow_data)
         self.template_data = load_file("test_data/test_template.yaml")
-        self.template = GlowObject(GLOW_OBJECTS["Template"], self.template_data)
+        self.template = GlowObject(GLOW_OBJECTS["template"], self.template_data)
 
     def tearDown(self):
         self.formflow_data = None
@@ -93,7 +94,7 @@ class NonYAMLTestCase(unittest.TestCase):
         """Ensure we can locate the objects with paths
         """
         target = sorted(list(glow_file_objects()))
-        result = sorted([GLOW_OBJECTS["Formflow"], GLOW_OBJECTS["Template"]])
+        result = sorted([GLOW_OBJECTS["formflow"], GLOW_OBJECTS["template"]])
         self.assertEqual(target, result)
 
     @data([{"name":        "Order Manager",
@@ -107,6 +108,19 @@ class NonYAMLTestCase(unittest.TestCase):
         target = list(parser.iterfind("Tile"))
         self.assertEqual(target, result)
 
+    @data(({"type": "task", "task": "JMP",
+            "is_active": True, "name": "Foo",
+            "formflow": "bar"},
+            "name: Foo, type: task, task: JMP",
+            "task: JMP, type: task, name: Foo"))
+    @unpack
+    def test_display_properties(self, first, second, third):
+        """Node dictionary displays subset
+        """
+        result = serialize(first, display=True)
+        self.assertEqual(result, second)
+        self.assertNotEqual(result, third)
+
     @data(({"type": "formflow"}, "green"),
           ({"foo": "bar"}, "white"),
           ({"foo": "bar", "baz": "JMP"}, "red"))
@@ -115,6 +129,32 @@ class NonYAMLTestCase(unittest.TestCase):
         """Color is determined by dict values
         """
         self.assertEqual(coloring(first), second)
+
+    @data(({"foo": 123, "bar": "baz", "quz": True},
+            "foo: 123, bar: baz, quz: True"))
+    @unpack
+    def test_dict_serialization(self, first, second):
+        """Dictionary is serialized correctly
+        """
+        self.assertEqual(serialize(first), second)
+
+    @data(("foo: 123", True),
+          ("bar: b", True),
+          ("foo: bar", False),
+          ("a.: .a", True))
+    @unpack
+    def test_match_against_dict(self, first, second):
+        """Matches correctly against a dictionary"""
+        my_dict = {"foo": 123, "bar": "baz", "quz": True}
+        self.assertEqual(bool(match(first, my_dict)), second)
+
+    @data((".*", False), ("bar", False), ("(?=.*test)", False),
+          ("*", True), ("(bad", True), ("[}", True))
+    @unpack
+    def test_regex_validation(self, first, second):
+        """Test that incorrect regex strings are detected
+        """
+        self.assertEqual(invalid_regex(first), second)
 
 
 if __name__ == "__main__":

@@ -31,10 +31,10 @@ COLOR_LOOKUP = {
     "FRM":      "blue",
     "JMP":      "red",
     "tile":     "yellow"
-        }
+    }
 
 GLOW_OBJECTS = {
-    "Formflow": {
+    "formflow": {
         "type":  "formflow",
         "path":  "BPMWorkflowTmpl/*.yaml",
         "fields": {
@@ -50,7 +50,7 @@ GLOW_OBJECTS = {
             "name", "type", "entity"
             ]
         },
-    "Template": {
+    "template": {
         "type":  "template",
         "path":  "BPMForm/*.yaml",
         "fields": {
@@ -59,14 +59,14 @@ GLOW_OBJECTS = {
             "entity":      "VZ_EntityType",
             "form_factor": "VZ_FormFactor",
             "is_active":   "VZ_IsActive",
-            "type":        "VZ_FormType",
+            "form_type":   "VZ_FormType",
             "data":        "VZ_FormData"
             },
         "display": [
-            "name", "type", "entity"
+            "name", "type", "form_type", "entity"
             ]
         },
-    "Task": {
+    "task": {
         "type":  "task",
         "fields": {
             "guid":        "VR_PK",
@@ -204,15 +204,28 @@ def glow_file_objects():
     return (v for _, v in GLOW_OBJECTS.iteritems()
             if "path" in v)
 
-def display_properties(g_dict):
-    """Node or edge properties for display
+def serialize(g_dict, display=False):
+    """Serialize a node or edge properties
+
+    Used for searching full list or optional
+    display=True for printing minimal list
     """
-    if g_dict["type"] in GLOW_OBJECTS:
+    if display and g_dict["type"] in GLOW_OBJECTS:
         d_dict = GLOW_OBJECTS[g_dict["type"]]
-        return {k: g_dict[k]
-                for k in d_dict["display"]
-                if k in g_dict}
-    return g_dict
+        g_list = ("{}: {}".format(k, g_dict[k])
+                  for k in d_dict["display"]
+                  if k in g_dict)
+    else:
+        g_list = ("{}: {}".format(k, v)
+                    for (k, v) in g_dict.iteritems())
+    return ", ".join(g_list)
+
+def match(query, g_dict):
+    """Check if the regex query matches dict
+    """
+    s_dict = serialize(g_dict)
+    pattern = r"{}".format(query)
+    return re.search(pattern, s_dict, flags=re.IGNORECASE)
 
 def create_graph():
     """Create directed graph of objects
@@ -230,7 +243,7 @@ def create_graph():
 
             if glow_object.type == "formflow" and glow_object.tasks:
                 for task in glow_object.tasks:
-                    go_task = GlowObject(GLOW_OBJECTS["Task"], task)
+                    go_task = GlowObject(GLOW_OBJECTS["task"], task)
                     if go_task.task == "FRM":
                         graph.add_edge(glow_object.guid, go_task.template, go_task.map())
                     elif go_task.task == "JMP":
@@ -269,10 +282,9 @@ def missing_nodes(graph):
             print("-> from : {}".format(graph.node[caller]))
             print("    via : {}".format(edge))
 
-def pindent(text, level, color="white"):
+def pindent(text, level):
     """Indent print by specified level
     """
-    text = colored(text, color)
     print("{} {}{}".format(level, "  " * level, text))
 
 def coloring(data_dict):
@@ -283,57 +295,134 @@ def coloring(data_dict):
             return COLOR_LOOKUP[value]
     return "white"
 
-def print_tree(graph, parent, seen=None, level=0):
-    """Display all the reachable nodes from target"""
+def colorized(data_dict, color=None):
+    """Format and color node or edge data"""
+    if color is None:
+        color = coloring(data_dict)
+    data = serialize(data_dict, display=True)
+    return colored(data, color)
+
+def print_children(graph, parent, seen=None, level=1):
+    """Display all the successor nodes from parent
+    """
     if seen is None:
         seen = []
     seen.append(parent)
-    node_data = display_properties(graph.node[parent])
-    pindent(node_data, level, coloring(node_data))
-    level += 1
     for child in graph.successors(parent):
         print()
-        edge_data = display_properties(graph.get_edge_data(parent, child))
-        pindent(edge_data, level, coloring(edge_data))
-        if child in seen:
-            pindent(graph.node[child], level, "white")
+        edge_data = graph.get_edge_data(parent, child)
+        pindent(colorized(edge_data), level)
+        node_data = graph.node[child]
+        if node_data:
+            if child in seen:
+                pindent(colorized(node_data, "white"), level)
+            else:
+                pindent(colorized(node_data), level)
+                print_children(graph, child, seen, level+1)
         else:
-            print_tree(graph, child, seen, level)
+            pindent("{} is an undefined reference!".format(child), level)
 
-def print_parents(graph, node):
-    """Display all the predecessor nodes from target"""
-    for parent in graph.predecessors(node):
-        edge_data = display_properties(graph.get_edge_data(parent, node))
-        node_data = display_properties(graph.node[parent])
+def print_parents(graph, child):
+    """Display all the predecessor nodes from child
+    """
+    for parent in graph.predecessors(child):
+        edge_data = graph.get_edge_data(parent, child)
+        node_data = graph.node[parent]
         print()
-        pindent(edge_data, 0, coloring(edge_data))
-        pindent(node_data, 0, coloring(node_data))
+        pindent(colorized(edge_data), 0)
+        pindent(colorized(node_data), 0)
+
+def select_nodes(graph, query):
+    """Obtain list of nodes that match provided pattern
+    """
+    nodes = []
+    for node in graph:
+        node_data = graph.node[node]
+        if match(query, node_data):
+            nodes.append((node, node_data))
+    return nodes
+
+def invalid_regex(expression):
+    """Check for bad regex expression
+    """
+    try:
+        re.compile(r"{}".format(expression))
+    except re.error:
+        return True
+    return False
+
+
 
 def main():
     """Provide navigation of the selected Glow objects
     """
-    print()
-    print("Generating directed graph...")
+    clear_screen()
+    print("""
+
+    Welcome to the Glow Navigator
+    -----------------------------
+
+This is a prototype exploration tool for
+the relationship between formflows and
+templates (forms and pages) using a directed
+graph.
+
+""")
+    print("Generating directed graph (30 secs) ...")
     start_time = time.time()
     graph = create_graph()
     end_time = time.time()
     elapsed_time = round(end_time - start_time)
-    print("Graph generated in {} seconds".format(elapsed_time))
+    print("Graph completed in {} seconds".format(elapsed_time))
     print()
     print(nx.info(graph))
 
-    # use this for example navigation
-    page_guid = "0e604158-7756-49fd-84da-2f82d94c9069"
-    print()
-    print("Example node: {}".format(page_guid))
-    print()
-    print_tree(graph, page_guid)
-    print()
-    print("Node predecessors")
-    print()
-    print_parents(graph, page_guid)
-    print()
-    pdb.set_trace()
+    try:
+        while True:
+            # ask them for a query
+            # present list of matching items
+            # when they select one
+            ## show them parents and children
+            ## with reference numbers so they
+            ## can select one of those as the
+            ## focus for the next display
+            print()
+            query = input("Enter regex for selecting a node: ")
+            if invalid_regex(query):
+                print()
+                print("--> {} is an invalid regex!".format(query))
+                continue
+
+            nodes = select_nodes(graph, query)
+            print()
+            if nodes:
+                nodes.sort(key=lambda (node, data) : data["name"])
+                for index, (node, node_data) in enumerate(nodes):
+                    print("{:>3} {}".format(index, colorized(node_data)))
+
+                print()
+                focus = input("Enter selected number or enter to search again: ")
+                try:
+                    focus = int(focus)
+                except ValueError:
+                    continue
+                if focus in range(len(nodes)):
+                    node, node_data = nodes[int(focus)]
+                    print()
+                    print("{} : {}".format(node, colorized(node_data)))
+                    print()
+                    print("These are the parents (predecessors):")
+                    print_parents(graph, node)
+                    print()
+                    print("These are the children (successors):")
+                    print_children(graph, node)
+
+    except KeyboardInterrupt:
+        print()
+    finally:
+        print()
+        print("Thanks for using the Glow Navigator")
+        print()
 
 if __name__ == "__main__":
     main()
