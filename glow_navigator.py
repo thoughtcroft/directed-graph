@@ -14,6 +14,7 @@ from builtins import input
 
 # standard libraries
 import glob
+import os.path
 import pdb
 import re
 import readline
@@ -29,8 +30,8 @@ from termcolor import colored
 COLOR_LOOKUP = {
     "formflow": "green",
     "template": "cyan",
-    "FRM":      "blue",
-    "JMP":      "red",
+    "task":     "red",
+    "command":  "magenta",
     "tile":     "yellow"
     }
 
@@ -38,9 +39,14 @@ GLOW_OBJECTS = {
     "entity": {
         "type": "entity",
         "path": "DotNet/Infrastructure/Rules/Configuration/Entities/*.yaml",
+        "display": ["name", "type", "entity"],
         "fields": {
-            },
-        "display": []
+            "properties": "properties"
+            }
+        },
+    "command": {
+        "type": "command",
+        "display": ["name", "type", "command_type", "entity"]
         },
     "formflow": {
         "type": "formflow",
@@ -78,6 +84,7 @@ GLOW_OBJECTS = {
             "name":        "VR_Description",
             "entity":      "VR_DataContextOverride",
             "task":        "VR_Type",
+            "command":     "VR_RuleName",
             "formflow":    "VR_VM_JumpToWorkflowTemplate",
             "template":    "VR_VZ_Form",
             "is_active":   "VR_IsActive"
@@ -190,6 +197,11 @@ def raw_guid(guid):
     """
     return guid.replace("-", "")
 
+def base_name(file_name):
+    """Return the base name of the file
+    """
+    return os.path.basename(file_name).rsplit('.', 1)[0]
+
 def load_file(file_name):
     """Return YAML from required file
     """
@@ -241,29 +253,74 @@ def create_graph():
         for file_name in glob.iglob(attrs["path"]):
             values = load_file(file_name)
             glow_object = GlowObject(attrs, values)
-            graph.add_node(glow_object.guid, glow_object.map())
-
-            if glow_object.type == "formflow" and glow_object.tasks:
-                for task in glow_object.tasks:
-                    go_task = GlowObject(GLOW_OBJECTS["task"], task)
-                    if go_task.task == "FRM":
-                        graph.add_edge(glow_object.guid, go_task.template, go_task.map())
-                    elif go_task.task == "JMP":
-                        graph.add_edge(glow_object.guid, go_task.formflow, go_task.map())
-                continue
-
-            if glow_object.type == "template" and glow_object.data:
-                xml_parser = XMLParser(glow_object.data)
-                for tile in xml_parser.iterfind("Tile"):
-                    tile["type"] = "tile"
-                    if not "entity" in tile:
-                        tile["entity"] = glow_object.entity
-                    if "template" in tile:
-                        graph.add_edge(glow_object.guid, tile["template"], tile)
-                    elif "formflow" in tile:
-                        graph.add_edge(glow_object.guid, tile["formflow"], tile)
-                continue
+            if glow_object.type == "formflow":
+                add_formflow_to_graph(graph, glow_object)
+            if glow_object.type == "template":
+                add_template_to_graph(graph, glow_object)
+            if glow_object.type == "entity":
+                add_entity_to_graph(graph, glow_object, file_name)
     return graph
+
+def add_formflow_to_graph(graph, formflow):
+    """Add a formflow object and its edges to the graph
+
+    Also iterates through tasks (form-flow steps) and
+    adds form-steps, formflow jumps and run command rules
+    """
+    graph.add_node(formflow.guid, formflow.map())
+    if formflow.tasks:
+        for task in formflow.tasks:
+            go_task = GlowObject(GLOW_OBJECTS["task"], task)
+            if go_task.task == "FRM" and go_task.template:
+                graph.add_edge(formflow.guid, go_task.template, go_task.map())
+            elif go_task.task == "JMP" and go_task.formflow:
+                graph.add_edge(formflow.guid, go_task.formflow, go_task.map())
+            elif go_task.task == "RUN" and go_task.command:
+                graph.add_edge(formflow.guid, go_task.command, go_task.map())
+
+def add_template_to_graph(graph, template):
+    """Add a template object and its edges to the graph
+
+    Iterates through any tiles on the template and
+    adds the relevant template or formflow link as an edge
+    """
+    graph.add_node(template.guid, template.map())
+    if template.data:
+        xml_parser = XMLParser(template.data)
+        for tile in xml_parser.iterfind("Tile"):
+            tile["type"] = "tile"
+            if not "entity" in tile:
+                tile["entity"] = template.entity
+            if "template" in tile:
+                graph.add_edge(template.guid, tile["template"], tile)
+            elif "formflow" in tile:
+                graph.add_edge(template.guid, tile["formflow"], tile)
+
+def add_entity_to_graph(graph, entity, file_name):
+    """Add entity level information to the graph
+
+    Only adds Command Rules for now which are based
+    on 'name' as 'guid' is not used by referrers
+    """
+    TOPICS = {
+        "ruleId":     "guid",
+        "ruleType":   "rule_type",
+        "methodName": "command_type"
+        }
+
+    entity_name = base_name(file_name)
+    properties = entity.values['properties']
+    for name, attrs in properties.iteritems():
+        p_dict = attrs[0]
+        e_dict = {}
+        if p_dict["ruleType"] == "CMD":
+            e_dict["name"] = name
+            e_dict["type"] = "command"
+            e_dict["entity"] = entity_name
+            for key, value in p_dict.iteritems():
+                if key in TOPICS:
+                    e_dict[TOPICS[key]] = value
+            graph.add_node(name, e_dict)
 
 def missing_nodes(graph):
     """Return data on nodes without data

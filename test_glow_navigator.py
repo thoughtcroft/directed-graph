@@ -11,7 +11,7 @@ from glow_navigator import (load_file, raw_guid,
                             remove_xmlns, glow_file_objects,
                             GlowObject, XMLParser, serialize,
                             GLOW_OBJECTS, coloring, match,
-                            invalid_regex)
+                            invalid_regex, base_name)
 
 
 class YAMLBase(unittest.TestCase):
@@ -90,13 +90,6 @@ class NonYAMLTestCase(unittest.TestCase):
         """
         self.assertEqual(remove_xmlns(first), second)
 
-    def test_glow_file_objects(self):
-        """Ensure we can locate the objects with paths
-        """
-        target = sorted(list(glow_file_objects()))
-        result = sorted([GLOW_OBJECTS["formflow"], GLOW_OBJECTS["template"]])
-        self.assertEqual(target, result)
-
     @data([{"name":        "Order Manager",
             "description": "Order Manager"}])
     def test_xml_handling(self, result):
@@ -156,6 +149,14 @@ class NonYAMLTestCase(unittest.TestCase):
         """
         self.assertEqual(invalid_regex(first), second)
 
+    @data(("foo/bar/baz.exe", "baz"),
+          ("foo", "foo"),
+          ("foo/bar.baz.quuz", "bar.baz"))
+    @unpack
+    def test_base_name(self, first, second):
+        """Extracts the file base name from full path
+        """
+        self.assertEqual(base_name(first), second)
 
 if __name__ == "__main__":
     unittest.main()
