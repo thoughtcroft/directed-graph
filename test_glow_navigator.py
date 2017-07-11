@@ -111,8 +111,8 @@ class NonYAMLTestCase(unittest.TestCase):
     @data(({"type": "task", "task": "JMP",
             "is_active": True, "name": "Foo",
             "formflow": "bar"},
-            "name: Foo, type: task, task: JMP",
-            "task: JMP, type: task, name: Foo"))
+           "name: Foo, type: task, task: JMP",
+           "task: JMP, type: task, name: Foo"))
     @unpack
     def test_display_properties(self, first, second, third):
         """Node dictionary displays subset
@@ -131,7 +131,7 @@ class NonYAMLTestCase(unittest.TestCase):
         self.assertEqual(coloring(first), second)
 
     @data(({"foo": 123, "bar": "baz", "quz": True},
-            "foo: 123, bar: baz, quz: True"))
+           "foo: 123, bar: baz, quz: True"))
     @unpack
     def test_dict_serialization(self, first, second):
         """Dictionary is serialized correctly

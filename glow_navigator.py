@@ -16,6 +16,7 @@ from builtins import input
 import glob
 import pdb
 import re
+import readline
 import time
 import xml.etree.ElementTree as ET
 import yaml
@@ -34,9 +35,17 @@ COLOR_LOOKUP = {
     }
 
 GLOW_OBJECTS = {
+    "entity": {
+        "type": "entity",
+        "path": "DotNet/Infrastructure/Rules/Configuration/Entities/*.yaml",
+        "fields": {
+            },
+        "display": []
+        },
     "formflow": {
-        "type":  "formflow",
-        "path":  "BPMWorkflowTmpl/*.yaml",
+        "type": "formflow",
+        "path": "DotNet/SystemData/SystemData/BPM/BPMWorkflowTmpl/*.yaml",
+        "display": ["name", "type", "entity"],
         "fields": {
             "guid":        "VM_PK",
             "name":        "VM_Name",
@@ -45,14 +54,12 @@ GLOW_OBJECTS = {
             "is_active":   "VM_IsActive",
             "usage":       "VM_Usage",
             "tasks":       "BPMTaskTmpls"
-            },
-        "display": [
-            "name", "type", "entity"
-            ]
+            }
         },
     "template": {
-        "type":  "template",
-        "path":  "BPMForm/*.yaml",
+        "type": "template",
+        "path": "DotNet/SystemData/SystemData/BPM/BPMForm/*.yaml",
+        "display": ["name", "type", "form_type", "entity"],
         "fields": {
             "guid":        "VZ_PK",
             "name":        "VZ_FormID",
@@ -61,13 +68,11 @@ GLOW_OBJECTS = {
             "is_active":   "VZ_IsActive",
             "form_type":   "VZ_FormType",
             "data":        "VZ_FormData"
-            },
-        "display": [
-            "name", "type", "form_type", "entity"
-            ]
+            }
         },
     "task": {
-        "type":  "task",
+        "type": "task",
+        "display": ["name", "type", "task", "entity"],
         "fields": {
             "guid":        "VR_PK",
             "name":        "VR_Description",
@@ -76,10 +81,7 @@ GLOW_OBJECTS = {
             "formflow":    "VR_VM_JumpToWorkflowTemplate",
             "template":    "VR_VZ_Form",
             "is_active":   "VR_IsActive"
-            },
-        "display": [
-            "name", "type", "task", "entity"
-            ]
+            }
         }
     }
 
@@ -217,7 +219,7 @@ def serialize(g_dict, display=False):
                   if k in g_dict)
     else:
         g_list = ("{}: {}".format(k, v)
-                    for (k, v) in g_dict.iteritems())
+                  for (k, v) in g_dict.iteritems())
     return ", ".join(g_list)
 
 def match(query, g_dict):
@@ -322,15 +324,25 @@ def print_children(graph, parent, seen=None, level=1):
         else:
             pindent("{} is an undefined reference!".format(child), level)
 
-def print_parents(graph, child):
+def print_parents(graph, child, seen=None, level=1):
     """Display all the predecessor nodes from child
     """
+    if seen is None:
+        seen = []
+    seen.append(child)
     for parent in graph.predecessors(child):
-        edge_data = graph.get_edge_data(parent, child)
-        node_data = graph.node[parent]
         print()
-        pindent(colorized(edge_data), 0)
-        pindent(colorized(node_data), 0)
+        edge_data = graph.get_edge_data(parent, child)
+        pindent(colorized(edge_data), level)
+        node_data = graph.node[parent]
+        if node_data:
+            if parent in seen:
+                pindent(colorized(node_data, "white"), level)
+            else:
+                pindent(colorized(node_data), level)
+                print_parents(graph, parent, seen, level+1)
+        else:
+            pindent("{} is an undefined reference!".format(parent), level)
 
 def select_nodes(graph, query):
     """Obtain list of nodes that match provided pattern
@@ -376,18 +388,15 @@ graph.
     print("Graph completed in {} seconds".format(elapsed_time))
     print()
     print(nx.info(graph))
+    focus = None
 
     try:
         while True:
-            # ask them for a query
-            # present list of matching items
-            # when they select one
-            ## show them parents and children
-            ## with reference numbers so they
-            ## can select one of those as the
-            ## focus for the next display
             print()
-            query = input("Enter regex for selecting a node: ")
+            if isinstance(focus, basestring):
+                query = focus
+            else:
+                query = input("Enter regex for selecting a node: ")
             if invalid_regex(query):
                 print()
                 print("--> {} is an invalid regex!".format(query))
@@ -396,12 +405,12 @@ graph.
             nodes = select_nodes(graph, query)
             print()
             if nodes:
-                nodes.sort(key=lambda (node, data) : data["name"])
+                nodes.sort(key=lambda (node, data): data["name"])
                 for index, (node, node_data) in enumerate(nodes):
                     print("{:>3} {}".format(index, colorized(node_data)))
 
                 print()
-                focus = input("Enter selected number or enter to search again: ")
+                focus = input("Enter number to naviagte or another regex to search again: ")
                 try:
                     focus = int(focus)
                 except ValueError:
