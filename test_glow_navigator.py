@@ -7,10 +7,10 @@
 import unittest
 from ddt import ddt, data, unpack
 
-from glow_navigator import (load_file, raw_guid,
+from glow_navigator import (load_file, raw_guid, full_guid,
                             remove_xmlns, glow_file_objects,
                             GlowObject, XMLParser, serialize,
-                            GLOW_OBJECTS, coloring, match,
+                            GLOW_CONFIG, coloring, match,
                             invalid_regex, base_name)
 
 
@@ -19,9 +19,9 @@ class YAMLBase(unittest.TestCase):
     """
     def setUp(self):
         self.formflow_data = load_file("test_data/test_formflow.yaml")
-        self.formflow = GlowObject(GLOW_OBJECTS["formflow"], self.formflow_data)
+        self.formflow = GlowObject(GLOW_CONFIG["formflow"], self.formflow_data)
         self.template_data = load_file("test_data/test_template.yaml")
-        self.template = GlowObject(GLOW_OBJECTS["template"], self.template_data)
+        self.template = GlowObject(GLOW_CONFIG["template"], self.template_data)
 
     def tearDown(self):
         self.formflow_data = None
@@ -38,7 +38,7 @@ class YAMLTestCase(YAMLBase):
           ("type", "template"),
           ("bar", None),
           ("entity", "My Test Entity"),
-          ("is_active", False))
+          ("active", False))
     @unpack
     def test_template_attribs(self, first, second):
         """Retrieves an attribute from parsed yaml
@@ -51,7 +51,7 @@ class YAMLTestCase(YAMLBase):
           ("name", "My Test Formflow"),
           ("foo", None),
           ("entity", "My Test Entity"),
-          ("is_active", True))
+          ("active", True))
     @unpack
     def test_formflow_attribs(self, first, second):
         """Retrieves an attribute from parsed yaml
@@ -62,7 +62,7 @@ class YAMLTestCase(YAMLBase):
 
     @data({"name":      "My Test Formflow",
            "entity":    "My Test Entity",
-           "is_active": True,
+           "active": True,
            "type":      "Formflow"})
     def test_value_map(self, result):
         """Returns a dictionary of mapped values
@@ -73,14 +73,19 @@ class YAMLTestCase(YAMLBase):
 class NonYAMLTestCase(unittest.TestCase):
     """Unit tests for code not dependent on YAML
     """
-    @data(("1-2-3-4-5", "12345"),
-          ("abc", "abc"),
-          ("ab c5 / 0", "ab c5 / 0"))
+    @data(("484a99c5-6e16-468a-924b-e177947f390e", "484a99c56e16468a924be177947f390e"))
     @unpack
     def test_raw_guid(self, first, second):
         """Converts string guid to plain form without hyphens
         """
         self.assertEqual(raw_guid(first), second)
+
+    @data(("484a99c56e16468a924be177947f390e", "484a99c5-6e16-468a-924b-e177947f390e"))
+    @unpack
+    def test_full_guid(self, first, second):
+        """Converts plain guid to hyphenated string form
+        """
+        self.assertEqual(full_guid(first), second)
 
     @data(("{http://schemas.microsoft.com/winfx/}UserControl", "UserControl"),
           ("no name space here", "no name space here"))
@@ -102,7 +107,7 @@ class NonYAMLTestCase(unittest.TestCase):
         self.assertEqual(target, result)
 
     @data(({"type": "task", "task": "JMP",
-            "is_active": True, "name": "Foo",
+            "active": True, "name": "Foo",
             "formflow": "bar"},
            "name: Foo, type: task, task: JMP",
            "task: JMP, type: task, name: Foo"))
@@ -116,7 +121,7 @@ class NonYAMLTestCase(unittest.TestCase):
 
     @data(({"type": "formflow"}, "green"),
           ({"foo": "bar"}, "white"),
-          ({"foo": "bar", "baz": "JMP"}, "red"))
+          ({"foo": "bar", "type": "task"}, "grey"))
     @unpack
     def test_coloring_lookup(self, first, second):
         """Color is determined by dict values
@@ -142,7 +147,7 @@ class NonYAMLTestCase(unittest.TestCase):
         self.assertEqual(bool(match(first, my_dict)), second)
 
     @data((".*", False), ("bar", False), ("(?=.*test)", False),
-          ("*", True), ("(bad", True), ("[}", True))
+          ("*", True), ("(bad", True), ("[}", True), ('', True))
     @unpack
     def test_regex_validation(self, first, second):
         """Test that incorrect regex strings are detected

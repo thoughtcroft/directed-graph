@@ -1,0 +1,145 @@
+# Configuration for the Glow Navigator
+---
+
+### Condition ###
+
+condition:
+  type:    condition
+  color:   red
+  display:
+    - name
+    - type
+    - description
+    - entity
+  path: DotNet/Infrastructure/Conditions/Configuration/Conditions/*.yaml
+  fields:
+    name:         code
+    entity:       entityName
+    description:  description
+
+### Command Rule ###
+
+command:
+  type:  command
+  color: magenta
+  display:
+    - name
+    - type
+    - command_type
+    - entity
+
+### Entity ###
+
+entity:
+  type: entity
+  path: DotNet/Infrastructure/Rules/Configuration/Entities/*.yaml
+  display:
+    - name
+    - type
+    - entity
+  fields:
+      properties: properties
+
+### Formflow ###
+
+formflow:
+  type:  formflow
+  color: green
+  path:  DotNet/SystemData/SystemData/BPM/BPMWorkflowTmpl/*.yaml
+  display:
+    - name
+    - type
+    - entity
+  fields:
+    guid:        VM_PK
+    name:        VM_Name
+    entity:      VM_EntityType
+    form_factor: VM_FormFactor
+    active:      VM_IsActive
+    usage:       VM_Usage
+    tasks:       BPMTaskTmpls
+    conditions:  BPMWorkflowTmplConds
+
+### Link - generic for landing page and others ###
+
+link:
+  type:  link
+  color: grey
+  display:
+    - name
+    - type
+
+### Module ###
+
+module:
+  type:  module
+  color: blue
+  path:  DotNet/SystemData/SystemData/BPM/BPMModule/*.yaml
+  display:
+    - name
+    - type
+    - code
+    - login
+    - security
+    - mobile
+  fields:
+    guid:         V9_PK
+    name:         V9_Name
+    code:         V9_Code
+    login:        V9_LoginType
+    template:     V9_VZ_StartupForm
+    theme:        V9_GO_Theme
+    web:          V9_WebPortalEnabled
+    mobile:       V9_IsPermittedToDeviceUsers
+    security:     V9_WebSecurityRight
+
+### Template ( forms and pages) ###
+
+template:
+  type:  template
+  color: cyan
+  path:  DotNet/SystemData/SystemData/BPM/BPMForm/*.yaml
+  display:
+    - name
+    - type
+    - form_type
+    - entity
+  fields:
+    guid:         VZ_PK
+    name:         VZ_FormID
+    entity:       VZ_EntityType
+    form_factor:  VZ_FormFactor
+    active:       VZ_IsActive
+    form_type:    VZ_FormType
+    data:         VZ_FormData
+
+### Task - formflow steps ###
+
+task:
+  type:  task
+  color: grey
+  display:
+    - name
+    - type
+    - task
+    - entity
+  fields:
+    guid:       VR_PK
+    name:       VR_Description
+    entity:     VR_DataContextOverride
+    task:       VR_Type
+    command:    VR_RuleName
+    formflow:   VR_VM_JumpToWorkflowTemplate
+    template:   VR_VZ_Form
+    active:     VR_IsActive
+
+### Tile - clickable on templates ###
+
+tile:
+  type:  tile
+  color: yellow
+  display:
+    - name
+    - type
+    - description
+    - entity

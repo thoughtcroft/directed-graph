@@ -19,6 +19,7 @@ import pdb
 import re
 import readline
 import time
+import uuid
 import xml.etree.ElementTree as ET
 import yaml
 
@@ -26,72 +27,12 @@ import yaml
 import networkx as nx
 from termcolor import colored
 
+def load_file(file_name):
+    """Return YAML from required file
+    """
+    return yaml.load(open(file_name, "r"))
 
-COLOR_LOOKUP = {
-    "formflow": "green",
-    "template": "cyan",
-    "task":     "red",
-    "command":  "magenta",
-    "tile":     "yellow"
-    }
-
-GLOW_OBJECTS = {
-    "entity": {
-        "type": "entity",
-        "path": "DotNet/Infrastructure/Rules/Configuration/Entities/*.yaml",
-        "display": ["name", "type", "entity"],
-        "fields": {
-            "properties": "properties"
-            }
-        },
-    "command": {
-        "type": "command",
-        "display": ["name", "type", "command_type", "entity"]
-        },
-    "formflow": {
-        "type": "formflow",
-        "path": "DotNet/SystemData/SystemData/BPM/BPMWorkflowTmpl/*.yaml",
-        "display": ["name", "type", "entity"],
-        "fields": {
-            "guid":        "VM_PK",
-            "name":        "VM_Name",
-            "entity":      "VM_EntityType",
-            "form_factor": "VM_FormFactor",
-            "is_active":   "VM_IsActive",
-            "usage":       "VM_Usage",
-            "tasks":       "BPMTaskTmpls"
-            }
-        },
-    "template": {
-        "type": "template",
-        "path": "DotNet/SystemData/SystemData/BPM/BPMForm/*.yaml",
-        "display": ["name", "type", "form_type", "entity"],
-        "fields": {
-            "guid":        "VZ_PK",
-            "name":        "VZ_FormID",
-            "entity":      "VZ_EntityType",
-            "form_factor": "VZ_FormFactor",
-            "is_active":   "VZ_IsActive",
-            "form_type":   "VZ_FormType",
-            "data":        "VZ_FormData"
-            }
-        },
-    "task": {
-        "type": "task",
-        "display": ["name", "type", "task", "entity"],
-        "fields": {
-            "guid":        "VR_PK",
-            "name":        "VR_Description",
-            "entity":      "VR_DataContextOverride",
-            "task":        "VR_Type",
-            "command":     "VR_RuleName",
-            "formflow":    "VR_VM_JumpToWorkflowTemplate",
-            "template":    "VR_VZ_Form",
-            "is_active":   "VR_IsActive"
-            }
-        }
-    }
-
+GLOW_CONFIG = load_file("glow_config.yaml")
 
 class GlowObject(object):
     # pylint: disable=too-few-public-methods
@@ -195,17 +136,17 @@ def clear_screen():
 def raw_guid(guid):
     """Remove hyphens from string guid
     """
-    return guid.replace("-", "")
+    return uuid.UUID(guid).hex
+
+def full_guid(guid):
+    """Format guid with hyphens
+    """
+    return str(uuid.UUID(guid))
 
 def base_name(file_name):
     """Return the base name of the file
     """
     return os.path.basename(file_name).rsplit('.', 1)[0]
-
-def load_file(file_name):
-    """Return YAML from required file
-    """
-    return yaml.load(open(file_name, "r"))
 
 def remove_xmlns(text):
     """Strip out any xmlns from xml tag
@@ -215,7 +156,7 @@ def remove_xmlns(text):
 def glow_file_objects():
     """Return the glow objects with files
     """
-    return (v for _, v in GLOW_OBJECTS.iteritems()
+    return (v for _, v in GLOW_CONFIG.iteritems()
             if "path" in v)
 
 def serialize(g_dict, display=False):
@@ -224,8 +165,9 @@ def serialize(g_dict, display=False):
     Used for searching full list or optional
     display=True for printing minimal list
     """
-    if display and g_dict["type"] in GLOW_OBJECTS:
-        d_dict = GLOW_OBJECTS[g_dict["type"]]
+    if (display and "type" in g_dict and
+            g_dict["type"] in GLOW_CONFIG):
+        d_dict = GLOW_CONFIG[g_dict["type"]]
         g_list = ("{}: {}".format(k, g_dict[k])
                   for k in d_dict["display"]
                   if k in g_dict)
@@ -253,30 +195,65 @@ def create_graph():
         for file_name in glob.iglob(attrs["path"]):
             values = load_file(file_name)
             glow_object = GlowObject(attrs, values)
-            if glow_object.type == "formflow":
-                add_formflow_to_graph(graph, glow_object)
-            if glow_object.type == "template":
-                add_template_to_graph(graph, glow_object)
+            if glow_object.type == "condition":
+                add_condition_to_graph(graph, glow_object, file_name)
             if glow_object.type == "entity":
                 add_entity_to_graph(graph, glow_object, file_name)
+            if glow_object.type == "formflow":
+                add_formflow_to_graph(graph, glow_object)
+            if glow_object.type == "module":
+                add_module_to_graph(graph, glow_object)
+            if glow_object.type == "template":
+                add_template_to_graph(graph, glow_object)
     return graph
 
 def add_formflow_to_graph(graph, formflow):
     """Add a formflow object and its edges to the graph
 
-    Also iterates through tasks (form-flow steps) and
-    adds form-steps, formflow jumps and run command rules
+    Also iterates through tasks (formflow steps) and
+    adds form displays, formflow jump and run command rules
     """
     graph.add_node(formflow.guid, formflow.map())
     if formflow.tasks:
         for task in formflow.tasks:
-            go_task = GlowObject(GLOW_OBJECTS["task"], task)
+            go_task = GlowObject(GLOW_CONFIG["task"], task)
             if go_task.task == "FRM" and go_task.template:
                 graph.add_edge(formflow.guid, go_task.template, go_task.map())
             elif go_task.task == "JMP" and go_task.formflow:
                 graph.add_edge(formflow.guid, go_task.formflow, go_task.map())
             elif go_task.task == "RUN" and go_task.command:
-                graph.add_edge(formflow.guid, go_task.command, go_task.map())
+                node_ref = "{}-{}".format(go_task.command, formflow.entity)
+                graph.add_edge(formflow.guid, node_ref, go_task.map())
+
+    if formflow.conditions:
+        for condition in formflow.conditions:
+            c_dict = {
+                "type":      "link",
+                "name":      "Formflow Condition",
+                "condition": condition["VWT_ConditionId"],
+                "guid":      condition["VWT_PK"]
+                }
+            graph.add_edge(formflow.guid, c_dict["condition"], c_dict)
+
+    # TODO: need to add conditions on formflow tasks
+
+def add_condition_to_graph(graph, condition, file_name):
+    """Add a condition object to the graph
+    """
+    guid = full_guid(base_name(file_name))
+    graph.add_node(guid, condition.map())
+
+def add_module_to_graph(graph, module):
+    """Add a module object and its edges to the graph
+    """
+    graph.add_node(module.guid, module.map())
+    if module.template:
+        m_dict = {
+            "type":     "link",
+            "name":     "Landing Page",
+            "template": module.template
+        }
+        graph.add_edge(module.guid, module.template, m_dict)
 
 def add_template_to_graph(graph, template):
     """Add a template object and its edges to the graph
@@ -289,12 +266,13 @@ def add_template_to_graph(graph, template):
         xml_parser = XMLParser(template.data)
         for tile in xml_parser.iterfind("Tile"):
             tile["type"] = "tile"
-            if not "entity" in tile:
+            if not "entity" in tile and template.entity:
                 tile["entity"] = template.entity
             if "template" in tile:
                 graph.add_edge(template.guid, tile["template"], tile)
             elif "formflow" in tile:
                 graph.add_edge(template.guid, tile["formflow"], tile)
+            # TODO: add command rule
 
 def add_entity_to_graph(graph, entity, file_name):
     """Add entity level information to the graph
@@ -302,7 +280,7 @@ def add_entity_to_graph(graph, entity, file_name):
     Only adds Command Rules for now which are based
     on 'name' as 'guid' is not used by referrers
     """
-    TOPICS = {
+    module_fields = {
         "ruleId":     "guid",
         "ruleType":   "rule_type",
         "methodName": "command_type"
@@ -318,9 +296,10 @@ def add_entity_to_graph(graph, entity, file_name):
             e_dict["type"] = "command"
             e_dict["entity"] = entity_name
             for key, value in p_dict.iteritems():
-                if key in TOPICS:
-                    e_dict[TOPICS[key]] = value
-            graph.add_node(name, e_dict)
+                if key in module_fields:
+                    e_dict[module_fields[key]] = value
+            node_ref = "{}-{}".format(name, entity_name)
+            graph.add_node(node_ref, e_dict)
 
 def missing_nodes(graph):
     """Return data on nodes without data
@@ -344,15 +323,21 @@ def missing_nodes(graph):
 def pindent(text, level):
     """Indent print by specified level
     """
-    print("{} {}{}".format(level, "  " * level, text))
+    print("{:>3} {}{}".format(level, "  " * level, text))
 
 def coloring(data_dict):
     """Lookup data properties to determine the best color
     """
-    for _, value in data_dict.iteritems():
-        if value in COLOR_LOOKUP:
-            return COLOR_LOOKUP[value]
-    return "white"
+    color = "white"
+    if ("type" in data_dict and
+            data_dict["type"] in GLOW_CONFIG):
+        color = GLOW_CONFIG[data_dict["type"]]["color"]
+    return color
+
+    # for _, value in data_dict.iteritems():
+        # if value in COLOR_LOOKUP:
+            # return COLOR_LOOKUP[value]
+    # return "white"
 
 def colorized(data_dict, color=None):
     """Format and color node or edge data"""
@@ -414,12 +399,15 @@ def select_nodes(graph, query):
 def invalid_regex(expression):
     """Check for bad regex expression
     """
-    try:
-        re.compile(r"{}".format(expression))
-    except re.error:
-        return True
-    return False
-
+    result = True
+    if expression:
+        try:
+            re.compile(r"{}".format(expression))
+        except re.error:
+            pass
+        else:
+            result = False
+    return result
 
 
 def main():
@@ -450,38 +438,41 @@ graph.
     try:
         while True:
             print()
-            if isinstance(focus, basestring):
+            if focus and isinstance(focus, basestring):
                 query = focus
             else:
                 query = input("Enter regex for selecting a node: ")
             if invalid_regex(query):
                 print()
-                print("--> {} is an invalid regex!".format(query))
+                print("--> '{}' is an invalid regex!".format(query))
                 continue
 
             nodes = select_nodes(graph, query)
             print()
-            if nodes:
+            if not nodes:
+                focus = None
+            else:
                 nodes.sort(key=lambda (node, data): data["name"])
                 for index, (node, node_data) in enumerate(nodes):
                     print("{:>3} {}".format(index, colorized(node_data)))
 
-                print()
-                focus = input("Enter number to naviagte or another regex to search again: ")
-                try:
-                    focus = int(focus)
-                except ValueError:
-                    continue
-                if focus in range(len(nodes)):
-                    node, node_data = nodes[int(focus)]
+                while True:
                     print()
-                    print("{} : {}".format(node, colorized(node_data)))
-                    print()
-                    print("These are the parents (predecessors):")
-                    print_parents(graph, node)
-                    print()
-                    print("These are the children (successors):")
-                    print_children(graph, node)
+                    focus = input("Enter number to navigate or another regex to search again: ")
+                    try:
+                        focus = int(focus)
+                    except ValueError:
+                        break
+                    if focus in range(len(nodes)):
+                        node, node_data = nodes[int(focus)]
+                        print()
+                        print("{:>3} {} : {}".format("0", node, colorized(node_data)))
+                        print()
+                        print("These are the parents (predecessors):")
+                        print_parents(graph, node)
+                        print()
+                        print("These are the children (successors):")
+                        print_children(graph, node)
 
     except KeyboardInterrupt:
         print()
