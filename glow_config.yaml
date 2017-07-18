@@ -70,6 +70,19 @@ link:
     - name
     - type
 
+### Entity Meta Data - properties of fields etc
+metadata:
+  type:  metadata
+  color: blue
+  path:  DotNet/Model/Configuration/Configuration/Entities/*.yaml
+  display:
+    - name
+    - type
+    - entity
+  fields:
+    name:     entityType
+    data:     metaData
+
 ### Module ###
 module:
   type:  module

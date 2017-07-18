@@ -34,6 +34,8 @@ def load_file(file_name):
 
 GLOW_CONFIG = load_file("glow_config.yaml")
 
+TEMPLATE_LOOKUP = {}
+
 class GlowObject(object):
     # pylint: disable=too-few-public-methods
     """Glow Object class
@@ -78,7 +80,7 @@ class GlowObject(object):
                    if v in self.values}
         # add type and remove noisy attributes
         mapping["type"] = self.type
-        for attr in ("data", "guid", "tasks"):
+        for attr in ("data", "guid", "tasks", "dependencies"):
             mapping.pop(attr, None)
         return mapping
 
@@ -126,7 +128,7 @@ class XMLParser(object):
             "Text":         "name",
             "Description":  "description",
             "PagePK":       "template",
-            "Page":         "template",
+            "Page":         "template_name",
             "Workflow":     "formflow",
             "CommandRule":  "command"
             }
@@ -246,12 +248,18 @@ def create_graph():
     graph = nx.DiGraph(name="Glow")
     for attrs in glow_file_objects():
         for file_name in glob.iglob(attrs["path"]):
-            values = load_file(file_name)
+            try:
+                values = load_file(file_name)
+            except yaml.scanner.ScannerError:
+                print("Bad yaml in {}".format(file_name))
+                continue
             glow_object = GlowObject(attrs, values)
             if glow_object.type == "condition":
                 add_condition_to_graph(graph, glow_object, file_name)
             if glow_object.type == "entity":
                 add_entity_to_graph(graph, glow_object, file_name)
+            if glow_object.type == "metadata":
+                add_metadata_to_graph(graph, glow_object)
             if glow_object.type == "formflow":
                 add_formflow_to_graph(graph, glow_object)
             if glow_object.type == "module":
@@ -259,6 +267,22 @@ def create_graph():
             if glow_object.type == "template":
                 add_template_to_graph(graph, glow_object)
     return graph
+
+def add_metadata_to_graph(graph, metadata):
+    """Add additional entity metadata and edges to the graph
+
+    Looks for read-only property referencing condition
+    """
+    if (metadata.data and
+        "readOnly" in metadata.data and
+        isinstance(metadata.data["readOnly"], dict) and
+        "conditionId" in metadata.data["readOnly"]):
+        condition_guid = metadata.data["readOnly"]["conditionId"]
+        m_dict = {"name": metadata.name,
+                  "type": metadata.type,
+                  "entity": metadata.name}
+        graph.add_node(metadata.name, m_dict)
+        graph.add_edge(metadata.name, condition_guid, {"type": "link"})
 
 def add_formflow_to_graph(graph, formflow):
     """Add a formflow object and its edges to the graph
@@ -336,6 +360,9 @@ def add_template_to_graph(graph, template):
             tile["type"] = "tile"
             if not "entity" in tile and template.entity:
                 tile["entity"] = template.entity
+            if "template_name" in tile:
+                # need to correct for old style references
+                update_template_reference(tile)
             if "template" in tile:
                 graph.add_edge(template.guid, tile["template"], tile)
             elif "formflow" in tile:
@@ -348,6 +375,22 @@ def add_template_to_graph(graph, template):
         xml_parser = XMLParser(template.dependencies)
         for form in xml_parser.iterfind("form"):
             graph.add_edge(template.guid, form["template"], form)
+
+def update_template_reference(attrs):
+    """Necessary to correct for old style of referencing
+
+    Referencing by page name instead of page PK causes
+    a problem as we may not have processed that template
+    """
+    assert "template_name" in attrs
+    if "template" in attrs:
+        return
+    if not TEMPLATE_LOOKUP:
+        # initialise on first use
+        for file_name in glob.iglob(GLOW_CONFIG["template"]["path"]):
+            values = load_file(file_name)
+            TEMPLATE_LOOKUP[values["VZ_FormID"]] = values["VZ_PK"]
+    attrs["template"] = TEMPLATE_LOOKUP[attrs["template_name"]]
 
 def add_entity_to_graph(graph, entity, file_name):
     """Add entity level information to the graph
@@ -403,10 +446,10 @@ def pindent(text, level):
 def coloring(data_dict):
     """Lookup data properties to determine the best color
     """
-    color = "white"
-    if ("type" in data_dict and
-            data_dict["type"] in GLOW_CONFIG):
+    try:
         color = GLOW_CONFIG[data_dict["type"]]["color"]
+    except KeyError:
+        color = "white"
     return color
 
 def colorized(data_dict, color=None):
@@ -515,6 +558,8 @@ graph.
     print()
     print(nx.info(graph))
     focus = None
+    print()
+    missing_nodes(graph)
 
     try:
         while True:
@@ -533,7 +578,7 @@ graph.
             if not nodes:
                 focus = None
             else:
-                nodes.sort(key=lambda (node, data): data["name"])
+                nodes.sort(key=lambda (node, data): ("name" in data and data["name"]))
                 for index, (node, node_data) in enumerate(nodes):
                     print("{:>3} {}".format(index, colorized(node_data)))
 
