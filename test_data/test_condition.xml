@@ -1,0 +1,71 @@
+<Activity xmlns="http://schemas.microsoft.com/netfx/2009/xaml/activities" xmlns:cgid="clr-namespace:CargoWise.Glow.Infrastructure.Domain;assembly=CargoWise.Glow.Infrastructure.Domain" xmlns:cgii="clr-namespace:CargoWise.Glow.Infrastructure.Interfaces;assembly=CargoWise.Glow.Infrastructure.Interfaces" xmlns:cgmi="clr-namespace:CargoWise.Glow.Model.Interfaces;assembly=CargoWise.Glow.Model.Interfaces" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:mva="clr-namespace:Microsoft.VisualBasic.Activities;assembly=System.Activities" xmlns:p="http://cargowise.com/glow/bpm/activities" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:sads="http://schemas.microsoft.com/netfx/2010/xaml/activities/debugger" xmlns:sap="http://schemas.microsoft.com/netfx/2009/xaml/activities/presentation" xmlns:scg="clr-namespace:System.Collections.Generic;assembly=mscorlib" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  mc:Ignorable="sads sap"
+  x:Class="Start">
+  <x:Members>
+    <x:Property
+      Name="Entity"
+      Type="InArgument(cgmi:IWhsDocketLine)" />
+    <x:Property
+      Name="EntityDomainObject"
+      Type="InArgument(cgid:DomainObject(cgmi:IWhsDocketLine))" />
+    <x:Property
+      Name="ResumeFrom"
+      Type="InArgument(s:Guid)" />
+    <x:Property
+      Name="Workflow"
+      Type="InArgument(cgmi:IBPMWorkflow)" />
+    <x:Property
+      Name="UnitOfWork"
+      Type="InArgument(cgii:IUnitOfWork)" />
+  </x:Members>
+  <sap:VirtualizedContainerService.HintSize>614,490</sap:VirtualizedContainerService.HintSize>
+  <mva:VisualBasic.Settings>Assembly references and imported namespaces for internal implementation</mva:VisualBasic.Settings>
+  <p:TaskActivitiesContainer
+    LegacyWorkflowEngine="{x:Null}"
+    DisplayName="Workflow"
+    Entity="[Entity]"
+    EntityDomainObject="[EntityDomainObject]"
+    sap:VirtualizedContainerService.HintSize="574,450"
+    ResumeFrom="[ResumeFrom]"
+    UnitOfWork="[UnitOfWork]"
+    Workflow="[Workflow]">
+    <p:TaskActivitiesContainer.Body>
+      <Sequence
+        sap:VirtualizedContainerService.HintSize="564,440">
+        <Sequence.Variables>
+          <Variable
+            x:TypeArguments="s:Guid"
+            Default="6c2e0e16-0337-4a7b-8270-33e0e8320617"
+            Name="ResKey" />
+        </Sequence.Variables>
+        <sap:WorkflowViewStateService.ViewState>
+          <scg:Dictionary
+            x:TypeArguments="x:String, x:Object">
+            <x:Boolean
+              x:Key="IsExpanded">True</x:Boolean>
+          </scg:Dictionary>
+        </sap:WorkflowViewStateService.ViewState>
+        <p:ConditionalIfActivity
+          DisplayName="Check Status"
+          sap:VirtualizedContainerService.HintSize="542,316"
+          ResKey="foo-bar-baz"
+          SelectedCondition="my awesome condition">
+          <p:ConditionalIfActivity.Then>
+            <p:TaskRunCommandActivity
+              DisplayName="Update Status"
+              sap:VirtualizedContainerService.HintSize="292,93"
+              ResKey="bar-baz-foo"
+              TaskTemplatePK="my awesome command" />
+          </p:ConditionalIfActivity.Then>
+          <p:ConditionalIfActivity.Else>
+            <p:TaskJumpActivity
+              DisplayName="Show Details"
+              sap:VirtualizedContainerService.HintSize="200,22"
+              ResKey="baz-foo-bar"
+              TaskTemplatePK="my awesome formflow" />
+          </p:ConditionalIfActivity.Else>
+        </p:ConditionalIfActivity>
+      </Sequence>
+    </p:TaskActivitiesContainer.Body>
+  </p:TaskActivitiesContainer>
+</Activity>

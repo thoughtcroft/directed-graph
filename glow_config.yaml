@@ -2,15 +2,16 @@
 ---
 
 ### Condition ###
-
 condition:
   type:    condition
   color:   red
   display:
     - name
     - type
+    - condition_type
     - description
     - entity
+    - counts
   path: DotNet/Infrastructure/Conditions/Configuration/Conditions/*.yaml
   fields:
     name:         code
@@ -18,7 +19,6 @@ condition:
     description:  description
 
 ### Command Rule ###
-
 command:
   type:  command
   color: magenta
@@ -27,9 +27,9 @@ command:
     - type
     - command_type
     - entity
+    - counts
 
 ### Entity ###
-
 entity:
   type: entity
   path: DotNet/Infrastructure/Rules/Configuration/Entities/*.yaml
@@ -37,11 +37,11 @@ entity:
     - name
     - type
     - entity
+    - counts
   fields:
       properties: properties
 
 ### Formflow ###
-
 formflow:
   type:  formflow
   color: green
@@ -50,6 +50,7 @@ formflow:
     - name
     - type
     - entity
+    - counts
   fields:
     guid:        VM_PK
     name:        VM_Name
@@ -59,9 +60,9 @@ formflow:
     usage:       VM_Usage
     tasks:       BPMTaskTmpls
     conditions:  BPMWorkflowTmplConds
+    data:        VM_WorkflowDefinition
 
 ### Link - generic for landing page and others ###
-
 link:
   type:  link
   color: grey
@@ -70,7 +71,6 @@ link:
     - type
 
 ### Module ###
-
 module:
   type:  module
   color: blue
@@ -82,6 +82,7 @@ module:
     - login
     - security
     - mobile
+    - counts
   fields:
     guid:         V9_PK
     name:         V9_Name
@@ -93,28 +94,7 @@ module:
     mobile:       V9_IsPermittedToDeviceUsers
     security:     V9_WebSecurityRight
 
-### Template ( forms and pages) ###
-
-template:
-  type:  template
-  color: cyan
-  path:  DotNet/SystemData/SystemData/BPM/BPMForm/*.yaml
-  display:
-    - name
-    - type
-    - form_type
-    - entity
-  fields:
-    guid:         VZ_PK
-    name:         VZ_FormID
-    entity:       VZ_EntityType
-    form_factor:  VZ_FormFactor
-    active:       VZ_IsActive
-    form_type:    VZ_FormType
-    data:         VZ_FormData
-
 ### Task - formflow steps ###
-
 task:
   type:  task
   color: grey
@@ -123,6 +103,7 @@ task:
     - type
     - task
     - entity
+    - counts
   fields:
     guid:       VR_PK
     name:       VR_Description
@@ -133,8 +114,28 @@ task:
     template:   VR_VZ_Form
     active:     VR_IsActive
 
-### Tile - clickable on templates ###
+### Template ( forms and pages) ###
+template:
+  type:  template
+  color: cyan
+  path:  DotNet/SystemData/SystemData/BPM/BPMForm/*.yaml
+  display:
+    - name
+    - type
+    - form_type
+    - entity
+    - counts
+  fields:
+    guid:         VZ_PK
+    name:         VZ_FormID
+    entity:       VZ_EntityType
+    form_factor:  VZ_FormFactor
+    active:       VZ_IsActive
+    form_type:    VZ_FormType
+    data:         VZ_FormData
+    dependencies: VZ_Dependencies
 
+### Tile - clickable on templates ###
 tile:
   type:  tile
   color: yellow
@@ -143,3 +144,5 @@ tile:
     - type
     - description
     - entity
+    - counts
+...

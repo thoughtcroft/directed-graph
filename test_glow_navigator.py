@@ -97,13 +97,26 @@ class NonYAMLTestCase(unittest.TestCase):
 
     @data([{"name":        "Order Manager",
             "description": "Order Manager"}])
-    def test_xml_handling(self, result):
+    def test_xml_tile(self, result):
         """Test that parsing a Template xml object works
         """
-        with open("test_data/test_xml.xml") as xml_file:
+        with open("test_data/test_tile.xml") as xml_file:
             xml_data = xml_file.read()
         parser = XMLParser(xml_data)
         target = list(parser.iterfind("Tile"))
+        self.assertEqual(target, result)
+
+    @data([{"guid": "foo-bar-baz",
+            "type": "condition",
+            "name": "Check Status",
+            "condition": "my awesome condition"}])
+    def test_xml_condition(self, result):
+        """Test that parsing a Formflow xml object works
+        """
+        with open("test_data/test_condition.xml") as xml_file:
+            xml_data = xml_file.read()
+        parser = XMLParser(xml_data)
+        target = list(parser.iterfind("ConditionalIfActivity"))
         self.assertEqual(target, result)
 
     @data(({"type": "task", "task": "JMP",
@@ -147,7 +160,7 @@ class NonYAMLTestCase(unittest.TestCase):
         self.assertEqual(bool(match(first, my_dict)), second)
 
     @data((".*", False), ("bar", False), ("(?=.*test)", False),
-          ("*", True), ("(bad", True), ("[}", True), ('', True))
+          ("*", True), ("(bad", True), ("[}", True), ("", True))
     @unpack
     def test_regex_validation(self, first, second):
         """Test that incorrect regex strings are detected

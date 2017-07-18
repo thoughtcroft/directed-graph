@@ -87,26 +87,32 @@ class XMLParser(object):
     # pylint: disable=too-few-public-methods
     """Glow Template XML parser
     """
-    TOPICS = {
-        "Text":         "name",
-        "Description":  "description",
-        "PagePK":       "template",
-        "Workflow":     "formflow"
-        }
 
     def __init__(self, xml):
-        self.tree = ET.fromstring(xml)
+        try:
+            self.tree = ET.fromstring(xml.encode(encoding='utf-8'))
+        except UnicodeEncodeError:
+            pdb.set_trace()
 
     def iterfind(self, tag):
         """Generator for elements matching tag
 
-        Find nodes with tag then burrow into its
-        collection of Placeholder elements and return
-        the name, value pairs as a dictionary
+        Find nodes with tag and return an appropriate
+        data structure (varies by tag)
         """
         for node in self.tree.iter():
             if remove_xmlns(node.tag) == tag:
-                yield self._ph_dict(node)
+                yield self._data(node, tag)
+
+    def _data(self, node, tag):
+        """Generate the object according to tag
+        """
+        if tag == "Tile":
+            return self._ph_dict(node)
+        if tag == "ConditionalIfActivity":
+            return self._con_dict(node)
+        if tag == "form":
+            return self._form_dict(node)
 
     def _ph_dict(self, node):
         """Create the dictionary of Placeholders
@@ -116,15 +122,62 @@ class XMLParser(object):
         {name: topic, value: amount} is turned into
         {topic: amount} if value has been set
         """
+        topics = {
+            "Text":         "name",
+            "Description":  "description",
+            "PagePK":       "template",
+            "Page":         "template",
+            "Workflow":     "formflow",
+            "CommandRule":  "command"
+            }
+
         ph_dict = {}
         for elem in node.iter():
             if remove_xmlns(elem.tag) != "Placeholder":
                 continue
             e_dict = elem.attrib
-            if e_dict["Value"] and e_dict["Name"] in self.TOPICS:
-                key = self.TOPICS[e_dict["Name"]]
+            if e_dict["Value"] and e_dict["Name"] in topics:
+                key = topics[e_dict["Name"]]
                 ph_dict[key] = e_dict["Value"]
         return ph_dict
+
+    def _con_dict(self, node):
+        """Create the dictionary of the Condition
+
+        The ConditionalIfActivity element refers to the condition
+        """
+        topics = {
+            "ResKey":            "guid",
+            "DisplayName":       "name",
+            "SelectedCondition": "condition",
+            }
+
+        c_dict = self._build_dict(node, topics)
+        c_dict["type"] = "condition"
+        c_dict["condition_type"] = "task"
+        return c_dict
+
+    def _form_dict(self, node):
+        """Create the dictionary for form dependent link
+        """
+        topics = {
+            "templateID": "template",
+            "path":       "entity_path"
+            }
+
+        f_dict = self._build_dict(node, topics)
+        f_dict["type"] = "link"
+        f_dict["name"] = "Form dependency"
+        return f_dict
+
+    def _build_dict(self, node, topics):
+        """Build a dictionary of topics using node attributes
+        """
+        result = {}
+        for key, field in topics.iteritems():
+            if key in node.attrib:
+                result[field] = node.attrib[key]
+        return result
 
 
 # global functions
@@ -211,31 +264,45 @@ def add_formflow_to_graph(graph, formflow):
     """Add a formflow object and its edges to the graph
 
     Also iterates through tasks (formflow steps) and
-    adds form displays, formflow jump and run command rules
+    adds form displays, formflow jump, run command rules
+    as well as any referenced conditions
     """
+    task_list = {}
     graph.add_node(formflow.guid, formflow.map())
-    if formflow.tasks:
-        for task in formflow.tasks:
-            go_task = GlowObject(GLOW_CONFIG["task"], task)
-            if go_task.task == "FRM" and go_task.template:
-                graph.add_edge(formflow.guid, go_task.template, go_task.map())
-            elif go_task.task == "JMP" and go_task.formflow:
-                graph.add_edge(formflow.guid, go_task.formflow, go_task.map())
-            elif go_task.task == "RUN" and go_task.command:
-                node_ref = "{}-{}".format(go_task.command, formflow.entity)
-                graph.add_edge(formflow.guid, node_ref, go_task.map())
 
     if formflow.conditions:
         for condition in formflow.conditions:
             c_dict = {
-                "type":      "link",
-                "name":      "Formflow Condition",
-                "condition": condition["VWT_ConditionId"],
-                "guid":      condition["VWT_PK"]
+                "type":             "condition",
+                "name":             "If condition",
+                "condition_type":   "formflow",
+                "condition":        condition["VWT_ConditionId"],
+                "guid":             condition["VWT_PK"]
                 }
             graph.add_edge(formflow.guid, c_dict["condition"], c_dict)
 
-    # TODO: need to add conditions on formflow tasks
+    if formflow.tasks:
+        # build a dictionary so we can process conditions first
+        # and then add any that aren't subject to conditions
+        for task in formflow.tasks:
+            go_task = GlowObject(GLOW_CONFIG["task"], task)
+            add_task_edge_to_graph(graph, formflow, go_task)
+
+    if formflow.data:
+        xml_parser = XMLParser(formflow.data)
+        for condition in xml_parser.iterfind("ConditionalIfActivity"):
+            graph.add_edge(formflow.guid, condition["condition"], condition)
+
+def add_task_edge_to_graph(graph, formflow, task):
+    """Add an edge to the graph from a task object
+    """
+    if task.task == "FRM" and task.template:
+        graph.add_edge(formflow.guid, task.template, task.map())
+    elif task.task == "JMP" and task.formflow:
+        graph.add_edge(formflow.guid, task.formflow, task.map())
+    elif task.task == "RUN" and task.command:
+        command = "{}-{}".format(task.command, formflow.entity)
+        graph.add_edge(formflow.guid, command, task.map())
 
 def add_condition_to_graph(graph, condition, file_name):
     """Add a condition object to the graph
@@ -259,7 +326,8 @@ def add_template_to_graph(graph, template):
     """Add a template object and its edges to the graph
 
     Iterates through any tiles on the template and
-    adds the relevant template or formflow link as an edge
+    adds the relevant link as an edge. Also looks for
+    additional templates in the dependencies
     """
     graph.add_node(template.guid, template.map())
     if template.data:
@@ -272,7 +340,14 @@ def add_template_to_graph(graph, template):
                 graph.add_edge(template.guid, tile["template"], tile)
             elif "formflow" in tile:
                 graph.add_edge(template.guid, tile["formflow"], tile)
-            # TODO: add command rule
+            elif "command" in tile:
+                command = "{}-{}".format(tile["command"], tile["entity"])
+                graph.add_edge(template.guid, command, tile)
+
+    if template.dependencies:
+        xml_parser = XMLParser(template.dependencies)
+        for form in xml_parser.iterfind("form"):
+            graph.add_edge(template.guid, form["template"], form)
 
 def add_entity_to_graph(graph, entity, file_name):
     """Add entity level information to the graph
@@ -298,8 +373,8 @@ def add_entity_to_graph(graph, entity, file_name):
             for key, value in p_dict.iteritems():
                 if key in module_fields:
                     e_dict[module_fields[key]] = value
-            node_ref = "{}-{}".format(name, entity_name)
-            graph.add_node(node_ref, e_dict)
+            command = "{}-{}".format(name, entity_name)
+            graph.add_node(command, e_dict)
 
 def missing_nodes(graph):
     """Return data on nodes without data
@@ -333,11 +408,6 @@ def coloring(data_dict):
             data_dict["type"] in GLOW_CONFIG):
         color = GLOW_CONFIG[data_dict["type"]]["color"]
     return color
-
-    # for _, value in data_dict.iteritems():
-        # if value in COLOR_LOOKUP:
-            # return COLOR_LOOKUP[value]
-    # return "white"
 
 def colorized(data_dict, color=None):
     """Format and color node or edge data"""
@@ -391,10 +461,21 @@ def select_nodes(graph, query):
     """
     nodes = []
     for node in graph:
-        node_data = graph.node[node]
+        node_data = get_node_data(graph, node)
         if match(query, node_data):
             nodes.append((node, node_data))
     return nodes
+
+def get_node_data(graph, node):
+    """Retrieve data stored with node and add counts
+
+    Adds 'counts: p<c' for parents and children
+    """
+    parents = len(graph.predecessors(node))
+    children = len(graph.successors(node))
+    node_data = graph.node[node]
+    node_data["counts"] = "{}<{}".format(parents, children)
+    return node_data
 
 def invalid_regex(expression):
     """Check for bad regex expression
@@ -437,10 +518,10 @@ graph.
 
     try:
         while True:
-            print()
             if focus and isinstance(focus, basestring):
                 query = focus
             else:
+                print()
                 query = input("Enter regex for selecting a node: ")
             if invalid_regex(query):
                 print()
@@ -466,7 +547,7 @@ graph.
                     if focus in range(len(nodes)):
                         node, node_data = nodes[int(focus)]
                         print()
-                        print("{:>3} {} : {}".format("0", node, colorized(node_data)))
+                        pindent(colorized(node_data), 0)
                         print()
                         print("These are the parents (predecessors):")
                         print_parents(graph, node)
