@@ -8,10 +8,9 @@ import unittest
 from ddt import ddt, data, unpack
 
 from glow_navigator import (load_file, raw_guid, full_guid,
-                            remove_xmlns, glow_file_objects,
+                            remove_xmlns, invalid_regex, base_name,
                             GlowObject, XMLParser, serialize,
-                            GLOW_CONFIG, coloring, match,
-                            invalid_regex, base_name)
+                            GLOW_CONFIG, coloring, match)
 
 
 class YAMLBase(unittest.TestCase):

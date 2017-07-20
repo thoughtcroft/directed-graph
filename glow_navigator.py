@@ -5,7 +5,7 @@
 """Glow Navigator
 
 Command line tool for exloring the relationships between
-Form-flows and Templates in Glow designed apps
+Form-flows, Templates and other objects in Glow designed apps
 """
 
 # python2 and python3 portability
@@ -17,7 +17,7 @@ import glob
 import os.path
 import pdb
 import re
-import readline
+import readline  # pylint: disable=unused-import
 import time
 import uuid
 import xml.etree.ElementTree as ET
@@ -119,7 +119,8 @@ class XMLParser(object):
         if tag == "form":
             return self._form_dict(node)
 
-    def _ph_dict(self, node):
+    @staticmethod
+    def _ph_dict(node):
         """Create the dictionary of Placeholders
 
         The nodes Placeholder element attributes
@@ -175,7 +176,8 @@ class XMLParser(object):
         f_dict["name"] = "Form dependency"
         return f_dict
 
-    def _build_dict(self, node, topics):
+    @staticmethod
+    def _build_dict(node, topics):
         """Build a dictionary of topics using node attributes
         """
         result = {}
@@ -217,11 +219,13 @@ def glow_file_object(name):
     if name in GLOW_CONFIG:
         return GLOW_CONFIG[name]
 
-def glow_file_objects(omit=[]):
+def glow_file_objects(omit=None):
     """Return the glow objects with files
 
     Ignore any objects passed in omit list
     """
+    if omit is None:
+        omit = []
     return (v for k, v in GLOW_CONFIG.iteritems()
             if "path" in v and not k in omit)
 
@@ -290,9 +294,9 @@ def add_metadata_to_graph(graph, metadata):
     Looks for read-only property referencing condition
     """
     if (metadata.data and
-        "readOnly" in metadata.data and
-        isinstance(metadata.data["readOnly"], dict) and
-        "conditionId" in metadata.data["readOnly"]):
+            "readOnly" in metadata.data and
+            isinstance(metadata.data["readOnly"], dict) and
+            "conditionId" in metadata.data["readOnly"]):
         condition_guid = metadata.data["readOnly"]["conditionId"]
         m_dict = {"name": metadata.name,
                   "type": metadata.type,
@@ -308,7 +312,6 @@ def add_formflow_to_graph(graph, formflow):
     adds form displays, formflow jump, run command rules
     as well as any referenced conditions
     """
-    task_list = {}
     graph.add_node(formflow.guid, formflow.map())
 
     if formflow.conditions:
