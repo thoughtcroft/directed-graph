@@ -95,8 +95,9 @@ class NonYAMLTestCase(unittest.TestCase):
         """
         self.assertEqual(remove_xmlns(first), second)
 
-    @data([{"name":        "Order Manager",
-            "description": "Order Manager"}])
+    @data([{"name":          "Order Manager",
+            "description":   "Order Manager",
+            "template_name": "PO Search List"}])
     def test_xml_tile(self, result):
         """Test that parsing a Template xml object works
         """
@@ -106,10 +107,11 @@ class NonYAMLTestCase(unittest.TestCase):
         target = list(parser.iterfind("Tile"))
         self.assertEqual(target, result)
 
-    @data([{"guid": "foo-bar-baz",
-            "type": "condition",
-            "name": "Check Status",
-            "condition": "my awesome condition"}])
+    @data([{"guid":           "foo-bar-baz",
+            "type":           "condition",
+            "condition_type": "task",
+            "name":           "Check Status",
+            "condition":      "my awesome condition"}])
     def test_xml_condition(self, result):
         """Test that parsing a Formflow xml object works
         """

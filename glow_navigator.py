@@ -30,10 +30,13 @@ from termcolor import colored
 def load_file(file_name):
     """Return YAML from required file
     """
-    return yaml.load(open(file_name, "r"))
+    try:
+        return yaml.load(open(file_name, "r"))
+    except yaml.scanner.ScannerError:
+        print("Bad yaml in {}".format(file_name))
 
 GLOW_CONFIG = load_file("glow_config.yaml")
-
+COMMAND_LOOKUP = {}
 TEMPLATE_LOOKUP = {}
 
 class GlowObject(object):
@@ -208,11 +211,19 @@ def remove_xmlns(text):
     """
     return re.sub(r"\{.*\}", "", text)
 
-def glow_file_objects():
-    """Return the glow objects with files
+def glow_file_object(name):
+    """Return a single glow object
     """
-    return (v for _, v in GLOW_CONFIG.iteritems()
-            if "path" in v)
+    if name in GLOW_CONFIG:
+        return GLOW_CONFIG[name]
+
+def glow_file_objects(omit=[]):
+    """Return the glow objects with files
+
+    Ignore any objects passed in omit list
+    """
+    return (v for k, v in GLOW_CONFIG.iteritems()
+            if "path" in v and not k in omit)
 
 def serialize(g_dict, display=False):
     """Serialize a node or edge properties
@@ -238,6 +249,7 @@ def match(query, g_dict):
     pattern = r"{}".format(query)
     return re.search(pattern, s_dict, flags=re.IGNORECASE)
 
+
 def create_graph():
     """Create directed graph of objects
 
@@ -246,22 +258,26 @@ def create_graph():
     as edges from caller to callee
     """
     graph = nx.DiGraph(name="Glow")
-    for attrs in glow_file_objects():
+
+    # add entity first so the command dict is available
+    attrs = glow_file_object("entity")
+    for file_name in glob.iglob(attrs["path"]):
+        values = load_file(file_name)
+        glow_object = GlowObject(attrs, values)
+        add_entity_to_graph(graph, glow_object, file_name)
+
+    for attrs in glow_file_objects(omit=["entity"]):
         for file_name in glob.iglob(attrs["path"]):
-            try:
-                values = load_file(file_name)
-            except yaml.scanner.ScannerError:
-                print("Bad yaml in {}".format(file_name))
+            values = load_file(file_name)
+            if not values:
                 continue
             glow_object = GlowObject(attrs, values)
             if glow_object.type == "condition":
                 add_condition_to_graph(graph, glow_object, file_name)
-            if glow_object.type == "entity":
-                add_entity_to_graph(graph, glow_object, file_name)
-            if glow_object.type == "metadata":
-                add_metadata_to_graph(graph, glow_object)
             if glow_object.type == "formflow":
                 add_formflow_to_graph(graph, glow_object)
+            if glow_object.type == "metadata":
+                add_metadata_to_graph(graph, glow_object)
             if glow_object.type == "module":
                 add_module_to_graph(graph, glow_object)
             if glow_object.type == "template":
@@ -280,6 +296,7 @@ def add_metadata_to_graph(graph, metadata):
         condition_guid = metadata.data["readOnly"]["conditionId"]
         m_dict = {"name": metadata.name,
                   "type": metadata.type,
+                  "link": "read_only",
                   "entity": metadata.name}
         graph.add_node(metadata.name, m_dict)
         graph.add_edge(metadata.name, condition_guid, {"type": "link"})
@@ -325,7 +342,8 @@ def add_task_edge_to_graph(graph, formflow, task):
     elif task.task == "JMP" and task.formflow:
         graph.add_edge(formflow.guid, task.formflow, task.map())
     elif task.task == "RUN" and task.command:
-        command = "{}-{}".format(task.command, formflow.entity)
+        entity = get_command_entity(task.command, formflow.entity)
+        command = "{}-{}".format(task.command, entity)
         graph.add_edge(formflow.guid, command, task.map())
 
 def add_condition_to_graph(graph, condition, file_name):
@@ -363,12 +381,14 @@ def add_template_to_graph(graph, template):
             if "template_name" in tile:
                 # need to correct for old style references
                 update_template_reference(tile)
+
             if "template" in tile:
                 graph.add_edge(template.guid, tile["template"], tile)
             elif "formflow" in tile:
                 graph.add_edge(template.guid, tile["formflow"], tile)
             elif "command" in tile:
-                command = "{}-{}".format(tile["command"], tile["entity"])
+                entity = get_command_entity(tile["command"], tile["entity"])
+                command = "{}-{}".format(tile["command"], entity)
                 graph.add_edge(template.guid, command, tile)
 
     if template.dependencies:
@@ -396,7 +416,9 @@ def add_entity_to_graph(graph, entity, file_name):
     """Add entity level information to the graph
 
     Only adds Command Rules for now which are based
-    on 'name' as 'guid' is not used by referrers
+    on 'name' as 'guid' is not used by referrers.
+    Also creates COMMAND_LOOKUP to handle entity
+    command inheritance
     """
     module_fields = {
         "ruleId":     "guid",
@@ -416,8 +438,29 @@ def add_entity_to_graph(graph, entity, file_name):
             for key, value in p_dict.iteritems():
                 if key in module_fields:
                     e_dict[module_fields[key]] = value
+            add_to_command_lookup(name, entity_name)
             command = "{}-{}".format(name, entity_name)
             graph.add_node(command, e_dict)
+
+def add_to_command_lookup(command, entity):
+    """Add discovered command to lookup
+    """
+    commands = COMMAND_LOOKUP
+    if command in commands:
+        commands[command].append(entity)
+    else:
+        commands[command] = [entity]
+
+def get_command_entity(command, entity):
+    """Get the best command node name
+    """
+    commands = COMMAND_LOOKUP
+    if command in commands:
+        if not entity in commands[command]:
+            return commands[command][0]
+    else:
+        print("Bad command lookup: {}-{}".format(command, entity))
+    return entity
 
 def missing_nodes(graph):
     """Return data on nodes without data
@@ -591,6 +634,8 @@ graph.
                         break
                     if focus in range(len(nodes)):
                         node, node_data = nodes[int(focus)]
+                        print()
+                        print("-" * 120)
                         print()
                         pindent(colorized(node_data), 0)
                         print()

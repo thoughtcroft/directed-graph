@@ -78,6 +78,7 @@ metadata:
   display:
     - name
     - type
+    - link
     - entity
   fields:
     name:     entityType
