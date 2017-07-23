@@ -96,6 +96,7 @@ class NonYAMLTestCase(unittest.TestCase):
 
     @data([{"name":          "Order Manager",
             "description":   "Order Manager",
+            "image":         "36df2ef9-58c0-4fe7-84e0-6f68065a5f32",
             "template_name": "PO Search List"}])
     def test_xml_tile(self, result):
         """Test that parsing a Template xml object works

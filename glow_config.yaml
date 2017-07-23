@@ -58,9 +58,27 @@ formflow:
     form_factor: VM_FormFactor
     active:      VM_IsActive
     usage:       VM_Usage
+    image:       VM_SK_Image
     tasks:       BPMTaskTmpls
     conditions:  BPMWorkflowTmplConds
     data:        VM_WorkflowDefinition
+
+### Image ###
+image:
+  type:  image
+  color: yellow
+  path: DotNet/SystemData/SystemData/StmMedia/*.yaml
+  display:
+    - name
+    - type
+    - color
+    - image_type
+    - counts
+  fields:
+    guid:       SK_PK
+    name:       SK_Name
+    color:      SK_IsColorizable
+    image_type: SK_MediaType
 
 ### Link - generic for landing page and others ###
 link:
@@ -69,6 +87,7 @@ link:
   display:
     - name
     - type
+    - link_type
 
 ### Entity Meta Data - properties of fields etc
 metadata:

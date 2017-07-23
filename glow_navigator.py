@@ -32,8 +32,8 @@ def load_file(file_name):
     """
     try:
         return yaml.load(open(file_name, "r"))
-    except yaml.scanner.ScannerError:
-        print("Bad yaml in {}".format(file_name))
+    except yaml.scanner.ScannerError as err_msg:
+        print("Error: '{}' in {}".format(err_msg, file_name))
 
 GLOW_CONFIG = load_file("glow_config.yaml")
 COMMAND_LOOKUP = {}
@@ -112,15 +112,16 @@ class XMLParser(object):
     def _data(self, node, tag):
         """Generate the object according to tag
         """
-        if tag == "Tile":
+        if tag == "AsyncImage":
             return self._ph_dict(node)
         if tag == "ConditionalIfActivity":
             return self._con_dict(node)
         if tag == "form":
             return self._form_dict(node)
+        if tag == "Tile":
+            return self._ph_dict(node)
 
-    @staticmethod
-    def _ph_dict(node):
+    def _ph_dict(self, node):
         """Create the dictionary of Placeholders
 
         The nodes Placeholder element attributes
@@ -134,18 +135,12 @@ class XMLParser(object):
             "PagePK":       "template",
             "Page":         "template_name",
             "Workflow":     "formflow",
+            "Image":        "image",
             "CommandRule":  "command"
             }
 
-        ph_dict = {}
-        for elem in node.iter():
-            if remove_xmlns(elem.tag) != "Placeholder":
-                continue
-            e_dict = elem.attrib
-            if e_dict["Value"] and e_dict["Name"] in topics:
-                key = topics[e_dict["Name"]]
-                ph_dict[key] = e_dict["Value"]
-        return ph_dict
+        ph_dict = self._convert_dict(node, "Placeholder")
+        return self._build_dict(ph_dict, topics)
 
     def _con_dict(self, node):
         """Create the dictionary of the Condition
@@ -158,7 +153,7 @@ class XMLParser(object):
             "SelectedCondition": "condition",
             }
 
-        c_dict = self._build_dict(node, topics)
+        c_dict = self._build_dict(node.attrib, topics)
         c_dict["type"] = "condition"
         c_dict["condition_type"] = "task"
         return c_dict
@@ -171,19 +166,33 @@ class XMLParser(object):
             "path":       "entity_path"
             }
 
-        f_dict = self._build_dict(node, topics)
+        f_dict = self._build_dict(node.attrib, topics)
         f_dict["type"] = "link"
         f_dict["name"] = "Form dependency"
         return f_dict
 
     @staticmethod
-    def _build_dict(node, topics):
-        """Build a dictionary of topics using node attributes
+    def _convert_dict(node, tag):
+        """Convert names/value pairs to dict
+
+        Converts Name:foo, Value:bar into foo:bar
+        """
+        p_dict = {}
+        for elem in node.iter():
+            e_dict = elem.attrib
+            if (remove_xmlns(elem.tag) == tag
+                    and e_dict["Value"]):
+                p_dict[e_dict["Name"]] = e_dict["Value"]
+        return p_dict
+
+    @staticmethod
+    def _build_dict(attrib, topics):
+        """Build a dictionary of topics using attributes
         """
         result = {}
         for key, field in topics.iteritems():
-            if key in node.attrib:
-                result[field] = node.attrib[key]
+            if key in attrib:
+                result[field] = attrib[key]
         return result
 
 
@@ -280,6 +289,8 @@ def create_graph():
                 add_condition_to_graph(graph, glow_object, file_name)
             if glow_object.type == "formflow":
                 add_formflow_to_graph(graph, glow_object)
+            if glow_object.type == "image":
+                graph.add_node(glow_object.guid, glow_object.map())
             if glow_object.type == "metadata":
                 add_metadata_to_graph(graph, glow_object)
             if glow_object.type == "module":
@@ -313,6 +324,13 @@ def add_formflow_to_graph(graph, formflow):
     as well as any referenced conditions
     """
     graph.add_node(formflow.guid, formflow.map())
+
+    if formflow.image:
+        i_dict = {
+            "type":      "link",
+            "link_type": "formflow_icon"
+            }
+        graph.add_edge(formflow.guid, formflow.image, i_dict)
 
     if formflow.conditions:
         for condition in formflow.conditions:
@@ -355,15 +373,17 @@ def add_condition_to_graph(graph, condition, file_name):
     guid = full_guid(base_name(file_name))
     graph.add_node(guid, condition.map())
 
+
 def add_module_to_graph(graph, module):
     """Add a module object and its edges to the graph
     """
     graph.add_node(module.guid, module.map())
     if module.template:
         m_dict = {
-            "type":     "link",
-            "name":     "Landing Page",
-            "template": module.template
+            "type":       "link",
+            "link_type":  "module",
+            "name":       "Landing Page",
+            "template":   module.template
         }
         graph.add_edge(module.guid, module.template, m_dict)
 
@@ -377,6 +397,11 @@ def add_template_to_graph(graph, template):
     graph.add_node(template.guid, template.map())
     if template.data:
         xml_parser = XMLParser(template.data)
+
+        for image in xml_parser.iterfind("AsyncImage"):
+            image["type"] = "image"
+            graph.add_edge(template.guid, image["image"], image)
+
         for tile in xml_parser.iterfind("Tile"):
             tile["type"] = "tile"
             if not "entity" in tile and template.entity:
@@ -384,15 +409,16 @@ def add_template_to_graph(graph, template):
             if "template_name" in tile:
                 # need to correct for old style references
                 update_template_reference(tile)
-
             if "template" in tile:
                 graph.add_edge(template.guid, tile["template"], tile)
-            elif "formflow" in tile:
+            if "formflow" in tile:
                 graph.add_edge(template.guid, tile["formflow"], tile)
-            elif "command" in tile:
+            if "command" in tile:
                 entity = get_command_entity(tile["command"], tile["entity"])
                 command = "{}-{}".format(tile["command"], entity)
                 graph.add_edge(template.guid, command, tile)
+            if "image" in tile:
+                graph.add_edge(template.guid, tile["image"], tile)
 
     if template.dependencies:
         xml_parser = XMLParser(template.dependencies)
@@ -595,7 +621,7 @@ templates (forms and pages) using a directed
 graph.
 
 """)
-    print("Generating directed graph (30 secs) ...")
+
     start_time = time.time()
     graph = create_graph()
     end_time = time.time()
@@ -603,10 +629,10 @@ graph.
     print("Graph completed in {} seconds".format(elapsed_time))
     print()
     print(nx.info(graph))
-    focus = None
     print()
     missing_nodes(graph)
 
+    focus = None
     try:
         while True:
             if focus and isinstance(focus, basestring):
