@@ -13,9 +13,9 @@ from os import path
 
 here = path.abspath(path.dirname(__file__))
 
-# Get the long description from the README file
-#with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
-#    long_description = f.read()
+Get the long description from the README file
+with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
+    long_description = f.read()
 
 setup(
     name='glow_navigator',
@@ -26,7 +26,7 @@ setup(
     version='0.1.0',
 
     description='Tool for navigating Glow object relationships',
-    #long_description=long_description,
+    long_description=long_description,
 
     # The project's main homepage.
     url='https://github.com/thoughtcroft/glow_navigator',
