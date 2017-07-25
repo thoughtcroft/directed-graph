@@ -8,7 +8,7 @@
 import unittest
 from ddt import ddt, data, unpack
 
-from glow_navigator import (
+from glow_navigator.glow_navigator import (
     base_name,
     coloring,
     full_guid,

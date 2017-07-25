@@ -25,7 +25,7 @@ import xml.etree.ElementTree as ET
 import yaml
 
 # external libraries
-from config import settings
+from glow_config import settings
 import networkx as nx
 from termcolor import colored
 
