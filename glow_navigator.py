@@ -18,6 +18,7 @@ import os.path
 import pdb
 import re
 import readline  # pylint: disable=unused-import
+import sys
 import time
 import uuid
 import xml.etree.ElementTree as ET
@@ -649,7 +650,12 @@ You are only limited by your imagination (and regex skills)
     print("Graph completed in {} seconds".format(elapsed_time))
     print()
     print(nx.info(graph))
-    print()
+
+    if graph.number_of_nodes() == 0:
+        print("Nothing was added to the graph - run again in the Glow source root")
+        print()
+        sys.exit()
+
     missing_nodes(graph)
 
     focus = None
