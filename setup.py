@@ -13,8 +13,8 @@ from os import path
 
 here = path.abspath(path.dirname(__file__))
 
-Get the long description from the README file
-with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
+# Get the long description from the README file
+with open(path.join(here, 'README.txt'), encoding='utf-8') as f:
     long_description = f.read()
 
 setup(
@@ -47,8 +47,8 @@ setup(
         'Development Status :: 3 - Alpha',
 
         # Indicate who your project is intended for
-        'Intended Audience :: Glow Product Designers at WiseTech Global',
-        'Topic :: Software Development :: General Tools',
+        'Intended Audience :: Developers',
+        'Topic :: Software Development',
 
         # Pick your license as you wish (should match "license" above)
         'License :: OSI Approved :: MIT License',
