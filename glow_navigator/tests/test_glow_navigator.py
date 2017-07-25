@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# pylint: disable=no-name-in-module
 
 """Glow Navigator Unit Tests
 """
@@ -7,10 +8,19 @@
 import unittest
 from ddt import ddt, data, unpack
 
-from glow_navigator import (load_file, raw_guid, full_guid,
-                            remove_xmlns, invalid_regex, base_name,
-                            GlowObject, XMLParser, serialize,
-                            GLOW_CONFIG, coloring, match)
+from glow_navigator import (
+    base_name,
+    coloring,
+    full_guid,
+    GlowObject,
+    invalid_regex,
+    load_file,
+    match,
+    raw_guid,
+    remove_xmlns,
+    serialize,
+    settings,
+    XMLParser)
 
 
 class YAMLBase(unittest.TestCase):
@@ -18,9 +28,9 @@ class YAMLBase(unittest.TestCase):
     """
     def setUp(self):
         self.formflow_data = load_file("test_data/test_formflow.yaml")
-        self.formflow = GlowObject(GLOW_CONFIG["formflow"], self.formflow_data)
+        self.formflow = GlowObject(settings["formflow"], self.formflow_data)
         self.template_data = load_file("test_data/test_template.yaml")
-        self.template = GlowObject(GLOW_CONFIG["template"], self.template_data)
+        self.template = GlowObject(settings["template"], self.template_data)
 
     def tearDown(self):
         self.formflow_data = None

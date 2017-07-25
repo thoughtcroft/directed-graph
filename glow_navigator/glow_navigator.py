@@ -24,18 +24,10 @@ import xml.etree.ElementTree as ET
 import yaml
 
 # external libraries
+from config import settings
 import networkx as nx
 from termcolor import colored
 
-def load_file(file_name):
-    """Return YAML from required file
-    """
-    try:
-        return yaml.load(open(file_name, "r"))
-    except yaml.scanner.ScannerError as err_msg:
-        print("Error: '{}' in {}".format(err_msg, file_name))
-
-GLOW_CONFIG = load_file("glow_config.yaml")
 COMMAND_LOOKUP = {}
 TEMPLATE_LOOKUP = {}
 
@@ -198,6 +190,14 @@ class XMLParser(object):
 
 # global functions
 
+def load_file(file_name):
+    """Return YAML from required file
+    """
+    try:
+        return yaml.load(open(file_name, "r"))
+    except yaml.scanner.ScannerError as err_msg:
+        print("Error: '{}' in {}".format(err_msg, file_name))
+
 def clear_screen():
     """Clear the screen for better view"""
     print("\033[H\033[J")
@@ -225,8 +225,8 @@ def remove_xmlns(text):
 def glow_file_object(name):
     """Return a single glow object
     """
-    if name in GLOW_CONFIG:
-        return GLOW_CONFIG[name]
+    if name in settings:
+        return settings[name]
 
 def glow_file_objects(omit=None):
     """Return the glow objects with files
@@ -235,7 +235,7 @@ def glow_file_objects(omit=None):
     """
     if omit is None:
         omit = []
-    return (v for k, v in GLOW_CONFIG.iteritems()
+    return (v for k, v in settings.iteritems()
             if "path" in v and not k in omit)
 
 def serialize(g_dict, display=False):
@@ -245,8 +245,8 @@ def serialize(g_dict, display=False):
     display=True for printing minimal list
     """
     if (display and "type" in g_dict and
-            g_dict["type"] in GLOW_CONFIG):
-        d_dict = GLOW_CONFIG[g_dict["type"]]
+            g_dict["type"] in settings):
+        d_dict = settings[g_dict["type"]]
         g_list = ("{}: {}".format(k, g_dict[k])
                   for k in d_dict["display"]
                   if k in g_dict)
@@ -274,13 +274,15 @@ def create_graph():
 
     # add entity first so the command dict is available
     attrs = glow_file_object("entity")
-    for file_name in glob.iglob(attrs["path"]):
+    abs_path = os.path.abspath(attrs["path"])
+    for file_name in glob.iglob(abs_path):
         values = load_file(file_name)
         glow_object = GlowObject(attrs, values)
         add_entity_to_graph(graph, glow_object, file_name)
 
     for attrs in glow_file_objects(omit=["entity"]):
-        for file_name in glob.iglob(attrs["path"]):
+        abs_path = os.path.abspath(attrs["path"])
+        for file_name in glob.iglob(abs_path):
             values = load_file(file_name)
             if not values:
                 continue
@@ -347,7 +349,7 @@ def add_formflow_to_graph(graph, formflow):
         # build a dictionary so we can process conditions first
         # and then add any that aren't subject to conditions
         for task in formflow.tasks:
-            go_task = GlowObject(GLOW_CONFIG["task"], task)
+            go_task = GlowObject(settings["task"], task)
             add_task_edge_to_graph(graph, formflow, go_task)
 
     if formflow.data:
@@ -436,7 +438,8 @@ def update_template_reference(attrs):
         return
     if not TEMPLATE_LOOKUP:
         # initialise on first use
-        for file_name in glob.iglob(GLOW_CONFIG["template"]["path"]):
+        abs_path = os.path.abspath(settings["template"]["path"])
+        for file_name in glob.iglob(abs_path):
             values = load_file(file_name)
             TEMPLATE_LOOKUP[values["VZ_FormID"]] = values["VZ_PK"]
     attrs["template"] = TEMPLATE_LOOKUP[attrs["template_name"]]
@@ -519,7 +522,7 @@ def coloring(data_dict):
     """Lookup data properties to determine the best color
     """
     try:
-        color = GLOW_CONFIG[data_dict["type"]]["color"]
+        color = settings[data_dict["type"]]["color"]
     except KeyError:
         color = "white"
     return color
@@ -616,16 +619,33 @@ def main():
     -----------------------------
 
 This is a prototype exploration tool for
-the relationship between formflows and
-templates (forms and pages) using a directed
+the relationship between formflows, pages, forms
+conditions, command rules and images using a directed
 graph.
 
-""")
+Search strings are specified as regex
+(see http://regex101.com for details).
 
+For example to find:
+
+ - anything containing 'truck'
+   > truck
+
+ - only templates containing 'truck'
+   > (?=.*type: template)(?=.*truck)
+
+ - anything with one or more parents
+   > ^(?!.*counts: 0<)
+
+You are only limited by your imagination (and regex skills)
+
+""")
+    print("Generating directed graph (< 1 min) ...")
     start_time = time.time()
     graph = create_graph()
     end_time = time.time()
     elapsed_time = round(end_time - start_time)
+    print()
     print("Graph completed in {} seconds".format(elapsed_time))
     print()
     print(nx.info(graph))
