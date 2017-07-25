@@ -22,12 +22,13 @@ import sys
 import time
 import uuid
 import xml.etree.ElementTree as ET
-import yaml
 
 # external libraries
-from glow_config import settings
 import networkx as nx
 from termcolor import colored
+import yaml
+
+from . glow_config import settings
 
 COMMAND_LOOKUP = {}
 TEMPLATE_LOOKUP = {}

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # pylint: disable=redefined-builtin
+# pylint: disable=invalid-name
 
 """Glow Navigator Config
 
