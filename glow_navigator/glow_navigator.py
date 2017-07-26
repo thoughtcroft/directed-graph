@@ -709,9 +709,9 @@ You are only limited by your imagination (and regex skills)
                         print_children(graph, node)
 
     except KeyboardInterrupt:
-        sys.exc_clear() # clear the traceback
         print()
     finally:
+        sys.exc_clear() # clear the traceback
         print()
         print("Thanks for using the Glow Navigator")
         print()

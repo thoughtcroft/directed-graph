@@ -83,7 +83,7 @@ image:
 ### Link - generic for landing page and others ###
 link:
   type:  link
-  color: grey
+  color: blue
   display:
     - name
     - type
@@ -130,7 +130,7 @@ module:
 ### Task - formflow steps ###
 task:
   type:  task
-  color: grey
+  color: green
   display:
     - name
     - type
@@ -171,7 +171,7 @@ template:
 ### Tile - clickable on templates ###
 tile:
   type:  tile
-  color: yellow
+  color: cyan
   display:
     - name
     - type
