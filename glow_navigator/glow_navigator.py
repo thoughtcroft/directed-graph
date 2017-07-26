@@ -28,14 +28,11 @@ import xml.etree.ElementTree as ET
 
 # external libraries
 import networkx as nx
-from colorama import init
+from colorama import (init, deinit)
 from termcolor import colored
 import yaml
 
 from . glow_config import settings
-
-# ensure colors works on Windows, no effect on Linux
-init()
 
 COMMAND_LOOKUP = {}
 TEMPLATE_LOOKUP = {}
@@ -621,6 +618,9 @@ def invalid_regex(expression):
 def main():
     """Provide navigation of the selected Glow objects
     """
+    # ensure colors works on Windows, no effect on Linux
+    init()
+
     clear_screen()
     print("""
 
@@ -709,6 +709,8 @@ You are only limited by your imagination (and regex skills)
                         print_children(graph, node)
 
     except KeyboardInterrupt:
+        # turn off color controls for Windows
+        deinit()
         print()
     finally:
         print()
