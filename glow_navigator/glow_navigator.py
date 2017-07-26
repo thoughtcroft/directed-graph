@@ -28,10 +28,14 @@ import xml.etree.ElementTree as ET
 
 # external libraries
 import networkx as nx
+from colorama import init
 from termcolor import colored
 import yaml
 
 from . glow_config import settings
+
+# ensure colors works on Windows, no effect on Linux
+init()
 
 COMMAND_LOOKUP = {}
 TEMPLATE_LOOKUP = {}
@@ -710,6 +714,7 @@ You are only limited by your imagination (and regex skills)
         print()
         print("Thanks for using the Glow Navigator")
         print()
+        sys.exit()
 
 if __name__ == "__main__":
     main()
