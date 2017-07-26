@@ -466,19 +466,21 @@ def add_entity_to_graph(graph, entity, file_name):
 
     entity_name = base_name(file_name)
     properties = entity.values['properties']
-    for name, attrs in properties.iteritems():
-        p_dict = attrs[0]
-        e_dict = {}
-        if p_dict["ruleType"] == "CMD":
-            e_dict["name"] = name
-            e_dict["type"] = "command"
-            e_dict["entity"] = entity_name
-            for key, value in p_dict.iteritems():
-                if key in module_fields:
-                    e_dict[module_fields[key]] = value
-            add_to_command_lookup(name, entity_name)
-            command = "{}-{}".format(name, entity_name)
-            graph.add_node(command, e_dict)
+    if properties:
+        for name, attrs in properties.iteritems():
+            if attrs:
+                p_dict = attrs[0]
+                e_dict = {}
+                if p_dict["ruleType"] == "CMD":
+                    e_dict["name"] = name
+                    e_dict["type"] = "command"
+                    e_dict["entity"] = entity_name
+                    for key, value in p_dict.iteritems():
+                        if key in module_fields:
+                            e_dict[module_fields[key]] = value
+                    add_to_command_lookup(name, entity_name)
+                    command = "{}-{}".format(name, entity_name)
+                    graph.add_node(command, e_dict)
 
 def add_to_command_lookup(command, entity):
     """Add discovered command to lookup
