@@ -28,7 +28,7 @@ import xml.etree.ElementTree as ET
 
 # external libraries
 import networkx as nx
-from colorama import (init, deinit)
+from colorama import init
 from termcolor import colored
 import yaml
 
@@ -709,8 +709,7 @@ You are only limited by your imagination (and regex skills)
                         print_children(graph, node)
 
     except KeyboardInterrupt:
-        # turn off color controls for Windows
-        deinit()
+        sys.exc_clear() # clear the traceback
         print()
     finally:
         print()
