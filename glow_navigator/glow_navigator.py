@@ -17,7 +17,10 @@ import glob
 import os.path
 import pdb
 import re
-import readline  # pylint: disable=unused-import
+try:
+    import readline  # pylint: disable=unused-import
+except ImportError:
+    import pyreadline as readline
 import sys
 import time
 import uuid
