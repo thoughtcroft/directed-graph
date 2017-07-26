@@ -35,6 +35,7 @@ import yaml
 from . glow_config import settings
 
 COMMAND_LOOKUP = {}
+TEMPLATE_LOOKUP = {}
 
 class GlowObject(object):
     # pylint: disable=too-few-public-methods
@@ -438,12 +439,16 @@ def update_template_reference(attrs):
     Referencing by page name instead of page PK causes
     a problem as we may not have processed that template
     """
+    assert "template_name" in attrs
     if "template" in attrs:
         return
-    try:
-        attrs["template"] = template_lookup[attrs["template_name"]]
-    except KeyError as err_msg:
-        print("Error: '{}' looking up {}".format(err_msg, attrs))
+    if not TEMPLATE_LOOKUP:
+        # initialise on first use
+        abs_path = os.path.abspath(settings["template"]["path"])
+        for file_name in glob.iglob(abs_path):
+            values = load_file(file_name)
+            TEMPLATE_LOOKUP[values["VZ_FormID"]] = values["VZ_PK"]
+    attrs["template"] = TEMPLATE_LOOKUP[attrs["template_name"]]
 
 def add_entity_to_graph(graph, entity, file_name):
     """Add entity level information to the graph
@@ -461,21 +466,19 @@ def add_entity_to_graph(graph, entity, file_name):
 
     entity_name = base_name(file_name)
     properties = entity.values['properties']
-    if properties:
-        for name, attrs in properties.iteritems():
-            if attrs:
-                p_dict = attrs[0]
-                e_dict = {}
-                if p_dict["ruleType"] == "CMD":
-                    e_dict["name"] = name
-                    e_dict["type"] = "command"
-                    e_dict["entity"] = entity_name
-                    for key, value in p_dict.iteritems():
-                        if key in module_fields:
-                            e_dict[module_fields[key]] = value
-                    add_to_command_lookup(name, entity_name)
-                    command = "{}-{}".format(name, entity_name)
-                    graph.add_node(command, e_dict)
+    for name, attrs in properties.iteritems():
+        p_dict = attrs[0]
+        e_dict = {}
+        if p_dict["ruleType"] == "CMD":
+            e_dict["name"] = name
+            e_dict["type"] = "command"
+            e_dict["entity"] = entity_name
+            for key, value in p_dict.iteritems():
+                if key in module_fields:
+                    e_dict[module_fields[key]] = value
+            add_to_command_lookup(name, entity_name)
+            command = "{}-{}".format(name, entity_name)
+            graph.add_node(command, e_dict)
 
 def add_to_command_lookup(command, entity):
     """Add discovered command to lookup
