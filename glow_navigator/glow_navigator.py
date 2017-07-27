@@ -18,23 +18,34 @@ import os.path
 import pdb
 import re
 try:
-    import readline  # pylint: disable=unused-import
+    import readline                 # pylint: disable=unused-import
 except ImportError:
-    import pyreadline as readline
+    import pyreadline as readline   # pylint: disable=unused-import
 import sys
 import time
-import uuid
 import xml.etree.ElementTree as ET
 
 # external libraries
 import networkx as nx
 from colorama import init
-from termcolor import colored
-import yaml
 
 from . glow_config import settings
+from . glow_templates import template_lookup
+from . glow_utils import (
+    base_name,
+    clear_screen,
+    colorized,
+    full_guid,
+    glow_file_object,
+    glow_file_objects,
+    invalid_regex,
+    load_file,
+    match,
+    pindent)
+
 
 COMMAND_LOOKUP = {}
+
 
 class GlowObject(object):
     # pylint: disable=too-few-public-methods
@@ -103,7 +114,7 @@ class XMLParser(object):
         data structure (varies by tag)
         """
         for node in self.tree.iter():
-            if remove_xmlns(node.tag) == tag:
+            if self.remove_xmlns(node.tag) == tag:
                 yield self._data(node, tag)
 
     def _data(self, node, tag):
@@ -168,8 +179,7 @@ class XMLParser(object):
         f_dict["name"] = "Form dependency"
         return f_dict
 
-    @staticmethod
-    def _convert_dict(node, tag):
+    def _convert_dict(self, node, tag):
         """Convert names/value pairs to dict
 
         Converts Name:foo, Value:bar into foo:bar
@@ -177,7 +187,7 @@ class XMLParser(object):
         p_dict = {}
         for elem in node.iter():
             e_dict = elem.attrib
-            if (remove_xmlns(elem.tag) == tag
+            if (self.remove_xmlns(elem.tag) == tag
                     and e_dict["Value"]):
                 p_dict[e_dict["Name"]] = e_dict["Value"]
         return p_dict
@@ -192,80 +202,11 @@ class XMLParser(object):
                 result[field] = attrib[key]
         return result
 
-
-# global functions
-
-def load_file(file_name):
-    """Return YAML from required file
-    """
-    try:
-        return yaml.load(open(file_name, "r"))
-    except yaml.scanner.ScannerError as err_msg:
-        print("Error: '{}' in {}".format(err_msg, file_name))
-
-def clear_screen():
-    """Clear the screen for better view"""
-    print("\033[H\033[J")
-
-def raw_guid(guid):
-    """Remove hyphens from string guid
-    """
-    return uuid.UUID(guid).hex
-
-def full_guid(guid):
-    """Format guid with hyphens
-    """
-    return str(uuid.UUID(guid))
-
-def base_name(file_name):
-    """Return the base name of the file
-    """
-    return os.path.basename(file_name).rsplit('.', 1)[0]
-
-def remove_xmlns(text):
-    """Strip out any xmlns from xml tag
-    """
-    return re.sub(r"\{.*\}", "", text)
-
-def glow_file_object(name):
-    """Return a single glow object
-    """
-    if name in settings:
-        return settings[name]
-
-def glow_file_objects(omit=None):
-    """Return the glow objects with files
-
-    Ignore any objects passed in omit list
-    """
-    if omit is None:
-        omit = []
-    return (v for k, v in settings.iteritems()
-            if "path" in v and not k in omit)
-
-def serialize(g_dict, display=False):
-    """Serialize a node or edge properties
-
-    Used for searching full list or optional
-    display=True for printing minimal list
-    """
-    if (display and "type" in g_dict and
-            g_dict["type"] in settings):
-        d_dict = settings[g_dict["type"]]
-        g_list = ("{}: {}".format(k, g_dict[k])
-                  for k in d_dict["display"]
-                  if k in g_dict)
-    else:
-        g_list = ("{}: {}".format(k, v)
-                  for (k, v) in g_dict.iteritems())
-    return ", ".join(g_list)
-
-def match(query, g_dict):
-    """Check if the regex query matches dict
-    """
-    s_dict = serialize(g_dict)
-    pattern = r"{}".format(query)
-    return re.search(pattern, s_dict, flags=re.IGNORECASE)
+    @staticmethod
+    def remove_xmlns(text):
+        """Strip out any xmlns from xml tag
+        """
+        return re.sub(r"\{.*\}", "", text)
 
 
 def create_graph():
@@ -379,7 +320,6 @@ def add_condition_to_graph(graph, condition, file_name):
     """
     guid = full_guid(base_name(file_name))
     graph.add_node(guid, condition.map())
-
 
 def add_module_to_graph(graph, module):
     """Add a module object and its edges to the graph
@@ -516,27 +456,6 @@ def missing_nodes(graph):
             print("-> from : {}".format(graph.node[caller]))
             print("    via : {}".format(edge))
 
-def pindent(text, level):
-    """Indent print by specified level
-    """
-    print("{:>3} {}{}".format(level, "  " * level, text))
-
-def coloring(data_dict):
-    """Lookup data properties to determine the best color
-    """
-    try:
-        color = settings[data_dict["type"]]["color"]
-    except KeyError:
-        color = "white"
-    return color
-
-def colorized(data_dict, color=None):
-    """Format and color node or edge data"""
-    if color is None:
-        color = coloring(data_dict)
-    data = serialize(data_dict, display=True)
-    return colored(data, color)
-
 def print_children(graph, parent, seen=None, level=1):
     """Display all the successor nodes from parent
     """
@@ -597,19 +516,6 @@ def get_node_data(graph, node):
     node_data = graph.node[node]
     node_data["counts"] = "{}<{}".format(parents, children)
     return node_data
-
-def invalid_regex(expression):
-    """Check for bad regex expression
-    """
-    result = True
-    if expression:
-        try:
-            re.compile(r"{}".format(expression))
-        except re.error:
-            pass
-        else:
-            result = False
-    return result
 
 
 def main():

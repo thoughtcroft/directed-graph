@@ -131,4 +131,6 @@ def serialize(g_dict, display=False):
     return ", ".join(g_list)
 
 if __name__ == "__main__":
-    print("This module is only a container for funcions")
+    print()
+    print("This module is only a container for utility functions")
+    print()
