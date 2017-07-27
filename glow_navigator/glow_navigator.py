@@ -128,6 +128,8 @@ class XMLParser(object):
             return self._form_dict(node)
         if tag == "Tile":
             return self._ph_dict(node)
+        if tag == "Grid":
+            return self._grid_dict(node)
 
     def _ph_dict(self, node):
         """Create the dictionary of Placeholders
@@ -138,17 +140,29 @@ class XMLParser(object):
         {topic: amount} if value has been set
         """
         topics = {
-            "Text":         "name",
-            "Description":  "description",
-            "PagePK":       "template",
-            "Page":         "template_name",
-            "Workflow":     "formflow",
-            "Image":        "image",
-            "CommandRule":  "command"
+            "Text":              "name",
+            "Description":       "description",
+            "PagePK":            "template",
+            "Page":              "template_name",
+            "Workflow":          "formflow",
+            "Image":             "image",
+            "CommandRule":       "command",
+            "BackgroundImagePk": "image"
             }
 
         ph_dict = self._convert_dict(node, "Placeholder")
         return self._build_dict(ph_dict, topics)
+
+    def _grid_dict(self, node):
+        """Create the dictionary of the form Grid
+
+        Need to get to the last element and
+        then return our normal Placeholder dictionary
+        """
+        g_dict = {}
+        if len(node):
+            g_dict = self._ph_dict(node[-1])
+        return g_dict
 
     def _con_dict(self, node):
         """Create the dictionary of the Condition
@@ -346,8 +360,16 @@ def add_template_to_graph(graph, template):
         xml_parser = XMLParser(template.data)
 
         for image in xml_parser.iterfind("AsyncImage"):
-            image["type"] = "image"
-            graph.add_edge(template.guid, image["image"], image)
+            if "image" in image:
+                image["type"] = "link"
+                image["link_type"] = "static_image"
+                graph.add_edge(template.guid, image["image"], image)
+
+        for image in xml_parser.iterfind("Grid"):
+            if "image" in image:
+                image["type"] = "link"
+                image["link_type"] = "background_image"
+                graph.add_edge(template.guid, image["image"], image)
 
         for tile in xml_parser.iterfind("Tile"):
             tile["type"] = "tile"

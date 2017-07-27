@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Q&D script to publish changes on PyPi
+
+set -e
+
+rm -rf build dist glow_navigator.egg-info
+python setup.py sdist bdist_wheel
+twine upload dist/*
