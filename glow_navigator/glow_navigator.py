@@ -448,7 +448,10 @@ def update_template_reference(attrs):
         for file_name in glob.iglob(abs_path):
             values = load_file(file_name)
             TEMPLATE_LOOKUP[values["VZ_FormID"]] = values["VZ_PK"]
-    attrs["template"] = TEMPLATE_LOOKUP[attrs["template_name"]]
+    try:
+        attrs["template"] = TEMPLATE_LOOKUP[attrs["template_name"]]
+    except KeyError as err_msg:
+        print("Error: '{}' from lookup of {}".format(err_msg, attrs))
 
 def add_entity_to_graph(graph, entity, file_name):
     """Add entity level information to the graph
