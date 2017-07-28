@@ -29,11 +29,39 @@ import xml.etree.ElementTree as ET
 import networkx as nx
 from colorama import init
 
+# put this out as import generation takes time
+start_time = time.time()
+print("""
+
+    Welcome to the Glow Navigator
+    -----------------------------
+
+This is a prototype exploration tool for
+the relationship between formflows, pages, forms
+conditions, command rules and images using a directed
+graph.
+
+Search strings are specified as regex
+(see http://regex101.com for details).
+
+For example to find:
+
+ - anything containing 'truck'
+   > truck
+
+ - only templates containing 'truck'
+   > (?=.*type: template)(?=.*truck)
+
+ - anything with one or more parents
+   > ^(?!.*counts: 0<)
+
+You are only limited by your imagination (and regex skills)
+""")
+
 from . glow_config import settings
 from . glow_templates import template_lookup
 from . glow_utils import (
     base_name,
-    clear_screen,
     colorized,
     full_guid,
     glow_file_object,
@@ -147,7 +175,8 @@ class XMLParser(object):
             "Workflow":          "formflow",
             "Image":             "image",
             "CommandRule":       "command",
-            "BackgroundImagePk": "image"
+            "BackgroundImagePk": "image",
+            "Url":               "url"
             }
 
         ph_dict = self._convert_dict(node, "Placeholder")
@@ -222,7 +251,6 @@ class XMLParser(object):
         """
         return re.sub(r"\{.*\}", "", text)
 
-
 def create_graph():
     """Create directed graph of objects
 
@@ -233,6 +261,7 @@ def create_graph():
     graph = nx.DiGraph(name="Glow")
 
     # add entity first so the command dict is available
+    print("Loading entity commands...")
     attrs = glow_file_object("entity")
     abs_path = os.path.abspath(attrs["path"])
     for file_name in glob.iglob(abs_path):
@@ -241,6 +270,7 @@ def create_graph():
         add_entity_to_graph(graph, glow_object, file_name)
 
     for attrs in glow_file_objects(omit=["entity"]):
+        print("Loading {}s...".format(attrs["type"]))
         abs_path = os.path.abspath(attrs["path"])
         for file_name in glob.iglob(abs_path):
             values = load_file(file_name)
@@ -405,7 +435,7 @@ def update_template_reference(attrs):
     try:
         attrs["template"] = template_lookup[attrs["template_name"]]
     except KeyError as err_msg:
-        print("Error: '{}' looking up {}".format(err_msg, attrs))
+        print("-> Error: '{}' looking up {}".format(err_msg, attrs))
 
 def add_entity_to_graph(graph, entity, file_name):
     """Add entity level information to the graph
@@ -539,43 +569,11 @@ def get_node_data(graph, node):
     node_data["counts"] = "{}<{}".format(parents, children)
     return node_data
 
-
 def main():
     """Provide navigation of the selected Glow objects
     """
     # ensure colors works on Windows, no effect on Linux
     init()
-
-    clear_screen()
-    print("""
-
-    Welcome to the Glow Navigator
-    -----------------------------
-
-This is a prototype exploration tool for
-the relationship between formflows, pages, forms
-conditions, command rules and images using a directed
-graph.
-
-Search strings are specified as regex
-(see http://regex101.com for details).
-
-For example to find:
-
- - anything containing 'truck'
-   > truck
-
- - only templates containing 'truck'
-   > (?=.*type: template)(?=.*truck)
-
- - anything with one or more parents
-   > ^(?!.*counts: 0<)
-
-You are only limited by your imagination (and regex skills)
-
-""")
-    print("Generating directed graph (< 1 min) ...")
-    start_time = time.time()
     graph = create_graph()
     end_time = time.time()
     elapsed_time = round(end_time - start_time)

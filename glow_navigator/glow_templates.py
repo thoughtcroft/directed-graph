@@ -8,10 +8,15 @@
 Create lookup for old style Page -> PK in formflows
 """
 
+# python2 and python3 portability
+from __future__ import print_function
+
 import glob
 import os.path
 from . glow_config import settings
 from . glow_utils import load_file
+
+print("Loading template name lookup...")
 
 template_lookup = {}
 abs_path = os.path.abspath(settings["template"]["path"])

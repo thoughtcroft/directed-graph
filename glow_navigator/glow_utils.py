@@ -29,7 +29,8 @@ def load_file(file_name):
     try:
         return yaml.load(open(file_name, "r"))
     except yaml.scanner.ScannerError as err_msg:
-        print("Error: '{}' in {}".format(err_msg, file_name))
+        print()
+        print("-> Error: '{}' in {}".format(err_msg, file_name))
 
 def raw_guid(guid):
     """Remove hyphens from string guid
