@@ -14,7 +14,7 @@ from __future__ import print_function
 import os.path
 import yaml
 
-print("Loading Glow configuration...")
+print("Loading settings")
 
 settings_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'glow_settings.yaml')
 

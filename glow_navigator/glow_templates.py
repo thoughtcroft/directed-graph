@@ -13,14 +13,16 @@ from __future__ import print_function
 
 import glob
 import os.path
+import click
+
 from . glow_config import settings
 from . glow_utils import load_file
 
-print("Loading template name lookup...")
-
 template_lookup = {}
 abs_path = os.path.abspath(settings["template"]["path"])
+label_text = "{0:30}".format("Loading template name lookup")
 
-for file_name in glob.iglob(abs_path):
-    values = load_file(file_name)
-    template_lookup[values["VZ_FormID"]] = values["VZ_PK"]
+with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as bar:
+    for file_name in bar:
+        values = load_file(file_name)
+        template_lookup[values["VZ_FormID"]] = values["VZ_PK"]

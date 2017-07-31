@@ -66,10 +66,6 @@ def glow_file_objects(omit=None):
 
 ## Printing in color and indenting for readibility
 
-def clear_screen():
-    """Clear the screen for better view"""
-    print("\033[H\033[J")
-
 def pindent(text, level):
     """Indent print by specified level
     """

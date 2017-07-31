@@ -26,6 +26,7 @@ import time
 import xml.etree.ElementTree as ET
 
 # external libraries
+import click
 import networkx as nx
 from colorama import init
 
@@ -261,34 +262,36 @@ def create_graph():
     graph = nx.DiGraph(name="Glow")
 
     # add entity first so the command dict is available
-    print("Loading entity commands...")
     attrs = glow_file_object("entity")
     abs_path = os.path.abspath(attrs["path"])
-    for file_name in glob.iglob(abs_path):
-        values = load_file(file_name)
-        glow_object = GlowObject(attrs, values)
-        add_entity_to_graph(graph, glow_object, file_name)
+    label_text = "{0:30}".format("Loading entity commands")
+    with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as bar:
+        for file_name in bar:
+            values = load_file(file_name)
+            glow_object = GlowObject(attrs, values)
+            add_entity_to_graph(graph, glow_object, file_name)
 
     for attrs in glow_file_objects(omit=["entity"]):
-        print("Loading {}s...".format(attrs["type"]))
         abs_path = os.path.abspath(attrs["path"])
-        for file_name in glob.iglob(abs_path):
-            values = load_file(file_name)
-            if not values:
-                continue
-            glow_object = GlowObject(attrs, values)
-            if glow_object.type == "condition":
-                add_condition_to_graph(graph, glow_object, file_name)
-            if glow_object.type == "formflow":
-                add_formflow_to_graph(graph, glow_object)
-            if glow_object.type == "image":
-                graph.add_node(glow_object.guid, glow_object.map())
-            if glow_object.type == "metadata":
-                add_metadata_to_graph(graph, glow_object)
-            if glow_object.type == "module":
-                add_module_to_graph(graph, glow_object)
-            if glow_object.type == "template":
-                add_template_to_graph(graph, glow_object)
+        label_text = "{0:30}".format("Loading {}s".format(attrs["type"]))
+        with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as bar:
+            for file_name in bar:
+                values = load_file(file_name)
+                if not values:
+                    continue
+                glow_object = GlowObject(attrs, values)
+                if glow_object.type == "condition":
+                    add_condition_to_graph(graph, glow_object, file_name)
+                if glow_object.type == "formflow":
+                    add_formflow_to_graph(graph, glow_object)
+                if glow_object.type == "image":
+                    graph.add_node(glow_object.guid, glow_object.map())
+                if glow_object.type == "metadata":
+                    add_metadata_to_graph(graph, glow_object)
+                if glow_object.type == "module":
+                    add_module_to_graph(graph, glow_object)
+                if glow_object.type == "template":
+                    add_template_to_graph(graph, glow_object)
     return graph
 
 def add_metadata_to_graph(graph, metadata):
@@ -632,11 +635,11 @@ def main():
                         print_children(graph, node)
 
     except KeyboardInterrupt:
-        print()
     finally:
-        sys.exc_clear() # clear the traceback
+        print()
         print()
         print("Thanks for using the Glow Navigator")
+        print()
         print()
         sys.exit()
 
