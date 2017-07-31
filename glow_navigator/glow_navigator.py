@@ -635,6 +635,7 @@ def main():
                         print_children(graph, node)
 
     except KeyboardInterrupt:
+        pass
     finally:
         print()
         print()

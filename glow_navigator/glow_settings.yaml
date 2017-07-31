@@ -39,7 +39,7 @@ entity:
     - entity
     - counts
   fields:
-      properties: properties
+    properties: properties
 
 ### Formflow ###
 formflow:
