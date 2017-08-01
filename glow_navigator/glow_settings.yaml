@@ -127,6 +127,18 @@ module:
     mobile:       V9_IsPermittedToDeviceUsers
     security:     V9_WebSecurityRight
 
+### Properties (calculated) ###
+property:
+  type:  property
+  color: magenta
+  display:
+    - name
+    - property
+    - type
+    - rule_type
+    - entity
+    - counts
+
 ### Task - formflow steps ###
 task:
   type:  task

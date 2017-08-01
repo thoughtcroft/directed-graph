@@ -57,6 +57,11 @@ For example to find:
    > ^(?!.*counts: 0<)
 
 You are only limited by your imagination (and regex skills)
+
+You can also vary the degree of expansion when looking at a specific
+object. Entering '$$max_level=n' will stop expanding the parent or
+children beyond the specified level. Default value is '0' which will
+exapnd all levels.
 """)
 
 from . glow_config import settings
@@ -74,6 +79,7 @@ from . glow_utils import (
 
 
 COMMAND_LOOKUP = {}
+MAX_LEVEL = 0
 
 
 class GlowObject(object):
@@ -159,6 +165,8 @@ class XMLParser(object):
             return self._ph_dict(node)
         if tag == "Grid":
             return self._grid_dict(node)
+        if tag == "calculatedProperty":
+            return self._prop_dict(node)
 
     def _ph_dict(self, node):
         """Create the dictionary of Placeholders
@@ -215,7 +223,7 @@ class XMLParser(object):
         """
         topics = {
             "templateID": "template",
-            "path":       "entity_path"
+            "path":       "property"
             }
 
         f_dict = self._build_dict(node.attrib, topics)
@@ -223,6 +231,17 @@ class XMLParser(object):
         f_dict["name"] = "Form dependency"
         return f_dict
 
+    def _prop_dict(self, node):
+        """Create the dictionary for property dependent link
+        """
+        topics = {
+            "path":       "property"
+            }
+
+        p_dict = self._build_dict(node.attrib, topics)
+        p_dict["type"] = "link"
+        p_dict["name"] = "Property dependency"
+        return p_dict
     def _convert_dict(self, node, tag):
         """Convert names/value pairs to dict
 
@@ -264,7 +283,7 @@ def create_graph():
     # add entity first so the command dict is available
     attrs = glow_file_object("entity")
     abs_path = os.path.abspath(attrs["path"])
-    label_text = "{0:30}".format("Loading entity commands")
+    label_text = "{0:30}".format("Loading entities")
     with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as bar:
         for file_name in bar:
             values = load_file(file_name)
@@ -386,7 +405,7 @@ def add_template_to_graph(graph, template):
 
     Iterates through any tiles on the template and
     adds the relevant link as an edge. Also looks for
-    additional templates in the dependencies
+    additional references in the dependencies
     """
     graph.add_node(template.guid, template.map())
     if template.data:
@@ -426,6 +445,19 @@ def add_template_to_graph(graph, template):
         xml_parser = XMLParser(template.dependencies)
         for form in xml_parser.iterfind("form"):
             graph.add_edge(template.guid, form["template"], form)
+        for prop in xml_parser.iterfind("calculatedProperty"):
+            reference = "{}-{}".format(prop["property"], template.entity)
+            add_property_edge_if_exists(graph, template.guid, reference, prop)
+
+def add_property_edge_if_exists(graph, parent, prop, attrs):
+    """Conditionally add reference to property if exists
+
+    Also deconstruct property name when checking so that
+    'entity.collection.prop' checks against 'prop'
+    """
+    base_prop = prop.rsplit(".")[-1]
+    if graph.has_node(base_prop):
+        graph.add_edge(parent, base_prop, attrs)
 
 def update_template_reference(attrs):
     """Necessary to correct for old style of referencing
@@ -443,15 +475,25 @@ def update_template_reference(attrs):
 def add_entity_to_graph(graph, entity, file_name):
     """Add entity level information to the graph
 
-    Only adds Command Rules for now which are based
-    on 'name' as 'guid' is not used by referrers.
-    Also creates COMMAND_LOOKUP to handle entity
-    command inheritance
+    - adds Command Rules based on 'name' as 'guid'
+      is not used by referrers.
+    - creates COMMAND_LOOKUP to handle entity
+      command inheritance
+    - adds calculated properties
     """
-    module_fields = {
+    def build_dict(attrib, topics):
+        """Build a dictionary of topics using attributes
+        """
+        result = {}
+        for key, field in topics.iteritems():
+            if key in attrib:
+                result[field] = attrib[key]
+        return result
+
+    topics = {
         "ruleId":     "guid",
-        "ruleType":   "rule_type",
-        "methodName": "command_type"
+        "ruleType":   "property_type",
+        "methodName": "rule_type"
         }
 
     entity_name = base_name(file_name)
@@ -459,18 +501,17 @@ def add_entity_to_graph(graph, entity, file_name):
     if properties:
         for name, attrs in properties.iteritems():
             if attrs:
-                p_dict = attrs[0]
-                e_dict = {}
-                if p_dict["ruleType"] == "CMD":
-                    e_dict["name"] = name
+                e_dict = build_dict(attrs[0], topics)
+                e_dict["name"] = name
+                e_dict["entity"] = entity_name
+                reference = "{}-{}".format(name, entity_name)
+                if e_dict["property_type"] == "CMD":
                     e_dict["type"] = "command"
-                    e_dict["entity"] = entity_name
-                    for key, value in p_dict.iteritems():
-                        if key in module_fields:
-                            e_dict[module_fields[key]] = value
                     add_to_command_lookup(name, entity_name)
-                    command = "{}-{}".format(name, entity_name)
-                    graph.add_node(command, e_dict)
+                    graph.add_node(reference, e_dict)
+                elif e_dict["property_type"] == "PRP":
+                    e_dict["type"] = "property"
+                    graph.add_node(reference, e_dict)
 
 def add_to_command_lookup(command, entity):
     """Add discovered command to lookup
@@ -527,7 +568,8 @@ def print_children(graph, parent, seen=None, level=1):
                 pindent(colorized(node_data, "white"), level)
             else:
                 pindent(colorized(node_data), level)
-                print_children(graph, child, seen, level+1)
+                if MAX_LEVEL == 0 or MAX_LEVEL > level:
+                    print_children(graph, child, seen, level+1)
         else:
             pindent("{} is an undefined reference!".format(child), level)
 
@@ -547,7 +589,8 @@ def print_parents(graph, child, seen=None, level=1):
                 pindent(colorized(node_data, "white"), level)
             else:
                 pindent(colorized(node_data), level)
-                print_parents(graph, parent, seen, level+1)
+                if MAX_LEVEL == 0 or MAX_LEVEL > level:
+                    print_parents(graph, parent, seen, level+1)
         else:
             pindent("{} is an undefined reference!".format(parent), level)
 
@@ -571,6 +614,30 @@ def get_node_data(graph, node):
     node_data = graph.node[node]
     node_data["counts"] = "{}<{}".format(parents, children)
     return node_data
+
+def special_command(query):
+    """Provide for special commands to change settings
+            if graph.has_node(reference):
+                # we only want links to calculated properties
+                graph.add_edge(template.guid, reference, prop)
+
+    -> $$max_level=n is the only one supported so far
+    """
+    global MAX_LEVEL
+    if query.startswith("$$max_level="):
+        try:
+            level = int(query.rsplit("=")[-1])
+        except ValueError:
+            print()
+            print("-> Error: Invalid value for max level!")
+            print()
+        else:
+            MAX_LEVEL = level
+            print()
+            print("-> MAX_LEVEL updated to {}".format(level))
+            print()
+        finally:
+            return True
 
 def main():
     """Provide navigation of the selected Glow objects
@@ -599,10 +666,14 @@ def main():
                 query = focus
             else:
                 print()
-                query = input("Enter regex for selecting a node: ")
+                query = input("Enter a $$ command or regex for selecting a node: ")
+            if special_command(query):
+                focus = None
+                continue
             if invalid_regex(query):
                 print()
                 print("--> '{}' is an invalid regex!".format(query))
+                focus = None
                 continue
 
             nodes = select_nodes(graph, query)
