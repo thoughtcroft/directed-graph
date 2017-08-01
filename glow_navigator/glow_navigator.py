@@ -60,8 +60,8 @@ You are only limited by your imagination (and regex skills)
 
 You can also vary the degree of expansion when looking at a specific
 object. Entering '$$max_level=n' will stop expanding the parent or
-children beyond the specified level. Default value is '0' which will
-exapnd all levels.
+children beyond the specified level. Default value is '3', setting to '0'
+will expand all available levels.
 """)
 
 from . glow_config import settings
@@ -79,7 +79,7 @@ from . glow_utils import (
 
 
 COMMAND_LOOKUP = {}
-MAX_LEVEL = 0
+MAX_LEVEL = 3
 
 
 class GlowObject(object):
@@ -155,17 +155,15 @@ class XMLParser(object):
     def _data(self, node, tag):
         """Generate the object according to tag
         """
-        if tag == "AsyncImage":
+        if tag == "AsyncImage" or tag == "Tile":
             return self._ph_dict(node)
         if tag == "ConditionalIfActivity":
             return self._con_dict(node)
         if tag == "form":
             return self._form_dict(node)
-        if tag == "Tile":
-            return self._ph_dict(node)
         if tag == "Grid":
             return self._grid_dict(node)
-        if tag == "calculatedProperty":
+        if tag == "calculatedProperty" or tag == "simpleConditionExpression":
             return self._prop_dict(node)
 
     def _ph_dict(self, node):
@@ -235,7 +233,8 @@ class XMLParser(object):
         """Create the dictionary for property dependent link
         """
         topics = {
-            "path":       "property"
+            "path":         "property",
+            "propertypath": "property"
             }
 
         p_dict = self._build_dict(node.attrib, topics)
@@ -386,6 +385,11 @@ def add_condition_to_graph(graph, condition, file_name):
     """
     guid = full_guid(base_name(file_name))
     graph.add_node(guid, condition.map())
+    if condition.expression:
+        xml_parser = XMLParser(condition.expression)
+        for prop in xml_parser.iterfind("simpleConditionExpression"):
+            reference = "{}-{}".format(prop["property"], condition.entity)
+            add_property_edge_if_exists(graph, guid, reference, prop)
 
 def add_module_to_graph(graph, module):
     """Add a module object and its edges to the graph

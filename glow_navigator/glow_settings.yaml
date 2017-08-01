@@ -17,6 +17,7 @@ condition:
     name:         code
     entity:       entityName
     description:  description
+    expression:   expression
 
 ### Command Rule ###
 command:
