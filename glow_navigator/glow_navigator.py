@@ -110,10 +110,11 @@ class GlowObject(object):
         field = attr
         if attr in self.fields:
             field = self.fields[attr]
-        try:
-            return self.values[field]
-        except KeyError:
-            return None
+        if field in self.values:
+            result = self.values[field]
+            if attr == "guid":
+                result = result.lower()
+            return result
 
     def map(self):
         """Return a dict of values mapped to fields
@@ -282,18 +283,19 @@ def create_graph():
     # add entity first so the command dict is available
     attrs = glow_file_object("entity")
     abs_path = os.path.abspath(attrs["path"])
-    label_text = "{0:30}".format("Loading entities")
-    with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as bar:
-        for file_name in bar:
+    label_text = "{0:25}".format("Loading entities")
+    with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as progress_bar:
+        for file_name in progress_bar:
             values = load_file(file_name)
+            values["name"] = base_name(file_name)
             glow_object = GlowObject(attrs, values)
-            add_entity_to_graph(graph, glow_object, file_name)
+            add_entity_to_graph(graph, glow_object)
 
     for attrs in glow_file_objects(omit=["entity"]):
         abs_path = os.path.abspath(attrs["path"])
-        label_text = "{0:30}".format("Loading {}s".format(attrs["type"]))
-        with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as bar:
-            for file_name in bar:
+        label_text = "{0:25}".format("Analysing {}s".format(attrs["type"]))
+        with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as progress_bar:
+            for file_name in progress_bar:
                 values = load_file(file_name)
                 if not values:
                     continue
@@ -305,29 +307,46 @@ def create_graph():
                 if glow_object.type == "image":
                     graph.add_node(glow_object.guid, glow_object.map())
                 if glow_object.type == "metadata":
-                    add_metadata_to_graph(graph, glow_object)
+                    add_metadata_to_graph(graph, glow_object, file_name)
                 if glow_object.type == "module":
                     add_module_to_graph(graph, glow_object)
                 if glow_object.type == "template":
                     add_template_to_graph(graph, glow_object)
     return graph
 
-def add_metadata_to_graph(graph, metadata):
+def add_metadata_to_graph(graph, metadata, file_name):
     """Add additional entity metadata and edges to the graph
-
-    Looks for read-only property referencing condition
     """
-    if (metadata.data and
-            "readOnly" in metadata.data and
-            isinstance(metadata.data["readOnly"], dict) and
-            "conditionId" in metadata.data["readOnly"]):
-        condition_guid = metadata.data["readOnly"]["conditionId"]
-        m_dict = {"name": metadata.name,
-                  "type": metadata.type,
-                  "link": "read_only",
-                  "entity": metadata.name}
-        graph.add_node(metadata.name, m_dict)
-        graph.add_edge(metadata.name, condition_guid, {"type": "link"})
+    if not metadata.name:
+        field = metadata.fields["name"]
+        metadata.name = base_name(file_name)
+        metadata.values[field] = metadata.name
+    m_dict = {
+        "name": metadata.name,
+        "type": "entity",
+        "entity": metadata.name
+    }
+    graph.add_node(metadata.name, m_dict)
+    if not metadata.data:
+        return
+
+    data = metadata.data
+    m_dict = {
+        "name":      "Entity metadata",
+        "type":      "link"
+    }
+    rdo_fld = metadata.fields["read_only"]
+    con_fld = metadata.fields["condition"]
+    if (rdo_fld in data and
+            isinstance(data[rdo_fld], dict) and
+            con_fld in data[rdo_fld]):
+        condition_guid = data[rdo_fld][con_fld]
+        m_dict["link_type"] = "read_only"
+        graph.add_edge(metadata.name, condition_guid.lower(), m_dict)
+
+    if "icon" in data:
+        m_dict["link_type"] = "icon_image"
+        graph.add_edge(metadata.name, data["icon"].lower(), m_dict)
 
 def add_formflow_to_graph(graph, formflow):
     """Add a formflow object and its edges to the graph
@@ -337,13 +356,16 @@ def add_formflow_to_graph(graph, formflow):
     as well as any referenced conditions
     """
     graph.add_node(formflow.guid, formflow.map())
+    f_dict = {
+        "type": "link",
+        "link_type": "formflow"
+    }
+    if formflow.entity:
+        graph.add_edge(formflow.entity, formflow.guid, f_dict)
 
     if formflow.image:
-        i_dict = {
-            "type":      "link",
-            "link_type": "formflow_icon"
-            }
-        graph.add_edge(formflow.guid, formflow.image, i_dict)
+        f_dict["link_type"] = "formflow_icon"
+        graph.add_edge(formflow.guid, formflow.image.lower(), f_dict)
 
     if formflow.conditions:
         for condition in formflow.conditions:
@@ -351,8 +373,8 @@ def add_formflow_to_graph(graph, formflow):
                 "type":             "condition",
                 "name":             "If condition",
                 "condition_type":   "formflow",
-                "condition":        condition["VWT_ConditionId"],
-                "guid":             condition["VWT_PK"]
+                "condition":        condition["VWT_ConditionId"].lower(),
+                "guid":             condition["VWT_PK"].lower()
                 }
             graph.add_edge(formflow.guid, c_dict["condition"], c_dict)
 
@@ -366,15 +388,15 @@ def add_formflow_to_graph(graph, formflow):
     if formflow.data:
         xml_parser = XMLParser(formflow.data)
         for condition in xml_parser.iterfind("ConditionalIfActivity"):
-            graph.add_edge(formflow.guid, condition["condition"], condition)
+            graph.add_edge(formflow.guid, condition["condition"].lower(), condition)
 
 def add_task_edge_to_graph(graph, formflow, task):
     """Add an edge to the graph from a task object
     """
     if task.task == "FRM" and task.template:
-        graph.add_edge(formflow.guid, task.template, task.map())
+        graph.add_edge(formflow.guid, task.template.lower(), task.map())
     elif task.task == "JMP" and task.formflow:
-        graph.add_edge(formflow.guid, task.formflow, task.map())
+        graph.add_edge(formflow.guid, task.formflow.lower(), task.map())
     elif task.task == "RUN" and task.command:
         entity = get_command_entity(task.command, formflow.entity)
         command = "{}-{}".format(task.command, entity)
@@ -402,7 +424,7 @@ def add_module_to_graph(graph, module):
             "name":       "Landing Page",
             "template":   module.template
         }
-        graph.add_edge(module.guid, module.template, m_dict)
+        graph.add_edge(module.guid, module.template.lower(), m_dict)
 
 def add_template_to_graph(graph, template):
     """Add a template object and its edges to the graph
@@ -412,6 +434,13 @@ def add_template_to_graph(graph, template):
     additional references in the dependencies
     """
     graph.add_node(template.guid, template.map())
+    if template.entity:
+        t_dict = {
+            "type": "link",
+            "link_type": "template"
+        }
+        graph.add_edge(template.entity, template.guid, t_dict)
+
     if template.data:
         xml_parser = XMLParser(template.data)
 
@@ -419,13 +448,13 @@ def add_template_to_graph(graph, template):
             if "image" in image:
                 image["type"] = "link"
                 image["link_type"] = "static_image"
-                graph.add_edge(template.guid, image["image"], image)
+                graph.add_edge(template.guid, image["image"].lower(), image)
 
         for image in xml_parser.iterfind("Grid"):
             if "image" in image:
                 image["type"] = "link"
                 image["link_type"] = "background_image"
-                graph.add_edge(template.guid, image["image"], image)
+                graph.add_edge(template.guid, image["image"].lower(), image)
 
         for tile in xml_parser.iterfind("Tile"):
             tile["type"] = "tile"
@@ -435,20 +464,20 @@ def add_template_to_graph(graph, template):
                 # need to correct for old style references
                 update_template_reference(tile)
             if "template" in tile:
-                graph.add_edge(template.guid, tile["template"], tile)
+                graph.add_edge(template.guid, tile["template"].lower(), tile)
             if "formflow" in tile:
-                graph.add_edge(template.guid, tile["formflow"], tile)
+                graph.add_edge(template.guid, tile["formflow"].lower(), tile)
             if "command" in tile:
                 entity = get_command_entity(tile["command"], tile["entity"])
                 command = "{}-{}".format(tile["command"], entity)
                 graph.add_edge(template.guid, command, tile)
             if "image" in tile:
-                graph.add_edge(template.guid, tile["image"], tile)
+                graph.add_edge(template.guid, tile["image"].lower(), tile)
 
     if template.dependencies:
         xml_parser = XMLParser(template.dependencies)
         for form in xml_parser.iterfind("form"):
-            graph.add_edge(template.guid, form["template"], form)
+            graph.add_edge(template.guid, form["template"].lower(), form)
         for prop in xml_parser.iterfind("calculatedProperty"):
             reference = "{}-{}".format(prop["property"], template.entity)
             add_property_edge_if_exists(graph, template.guid, reference, prop)
@@ -476,7 +505,7 @@ def update_template_reference(attrs):
     except KeyError as err_msg:
         print("-> Error: '{}' looking up {}".format(err_msg, attrs))
 
-def add_entity_to_graph(graph, entity, file_name):
+def add_entity_to_graph(graph, entity):
     """Add entity level information to the graph
 
     - adds Command Rules based on 'name' as 'guid'
@@ -484,6 +513,7 @@ def add_entity_to_graph(graph, entity, file_name):
     - creates COMMAND_LOOKUP to handle entity
       command inheritance
     - adds calculated properties
+    - looks for conditions referenced in rules
     """
     def build_dict(attrib, topics):
         """Build a dictionary of topics using attributes
@@ -495,27 +525,33 @@ def add_entity_to_graph(graph, entity, file_name):
         return result
 
     topics = {
-        "ruleId":     "guid",
-        "ruleType":   "property_type",
-        "methodName": "rule_type"
+        "ruleId":       "guid",
+        "ruleType":     "property_type",
+        "methodName":   "rule_type",
+        "conditionIds": "conditions"
         }
 
-    entity_name = base_name(file_name)
-    properties = entity.values['properties']
-    if properties:
-        for name, attrs in properties.iteritems():
+    graph.add_node(entity.name, entity.map())
+    if entity.properties:
+        for name, attrs in entity.properties.iteritems():
             if attrs:
                 e_dict = build_dict(attrs[0], topics)
                 e_dict["name"] = name
-                e_dict["entity"] = entity_name
-                reference = "{}-{}".format(name, entity_name)
+                e_dict["entity"] = entity.name
+                reference = "{}-{}".format(name, entity.name)
                 if e_dict["property_type"] == "CMD":
                     e_dict["type"] = "command"
-                    add_to_command_lookup(name, entity_name)
+                    add_to_command_lookup(name, entity.name)
                     graph.add_node(reference, e_dict)
                 elif e_dict["property_type"] == "PRP":
                     e_dict["type"] = "property"
                     graph.add_node(reference, e_dict)
+                if "conditions" in e_dict:
+                    e_dict["type"] = "link"
+                    e_dict["link_type"] = "defaulting rule"
+                    for condition in e_dict["conditions"]:
+                        if condition:
+                            graph.add_edge(entity.name, condition.lower(), e_dict)
 
 def add_to_command_lookup(command, entity):
     """Add discovered command to lookup
@@ -529,13 +565,12 @@ def add_to_command_lookup(command, entity):
 def get_command_entity(command, entity):
     """Get the best command node name
     """
+    result = entity
     commands = COMMAND_LOOKUP
     if command in commands:
         if not entity in commands[command]:
-            return commands[command][0]
-    else:
-        print("Bad command lookup: {}-{}".format(command, entity))
-    return entity
+            result = commands[command][0]
+    return result
 
 def missing_nodes(graph):
     """Return data on nodes without data
@@ -550,11 +585,12 @@ def missing_nodes(graph):
         if "type" not in graph.node[node]:
             print()
             print(node)
-            caller = graph.predecessors(node)[0]
-            edge = graph.get_edge_data(caller, node)
-            print()
-            print("-> from : {}".format(graph.node[caller]))
-            print("    via : {}".format(edge))
+            for caller in graph.predecessors(node):
+                if caller:
+                    edge = graph.get_edge_data(caller, node)
+                    print()
+                    print("-> from : {}".format(graph.node[caller]))
+                    print("    via : {}".format(edge))
 
 def print_children(graph, parent, seen=None, level=1):
     """Display all the successor nodes from parent
@@ -621,9 +657,6 @@ def get_node_data(graph, node):
 
 def special_command(query):
     """Provide for special commands to change settings
-            if graph.has_node(reference):
-                # we only want links to calculated properties
-                graph.add_edge(template.guid, reference, prop)
 
     -> $$max_level=n is the only one supported so far
     """
@@ -648,6 +681,7 @@ def main():
     """
     # ensure colors works on Windows, no effect on Linux
     init()
+
     graph = create_graph()
     end_time = time.time()
     elapsed_time = round(end_time - start_time)

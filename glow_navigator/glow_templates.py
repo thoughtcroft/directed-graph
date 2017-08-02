@@ -20,7 +20,7 @@ from . glow_utils import load_file
 
 template_lookup = {}
 abs_path = os.path.abspath(settings["template"]["path"])
-label_text = "{0:30}".format("Loading template name lookup")
+label_text = "{0:25}".format("Loading template lookup")
 
 with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as bar:
     for file_name in bar:

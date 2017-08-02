@@ -33,6 +33,7 @@ command:
 ### Entity ###
 entity:
   type: entity
+  color: blue
   path: DotNet/Infrastructure/Rules/Configuration/Entities/*.yaml
   display:
     - name
@@ -41,6 +42,7 @@ entity:
     - counts
   fields:
     properties: properties
+    name:       name
 
 ### Formflow ###
 formflow:
@@ -101,8 +103,10 @@ metadata:
     - link
     - entity
   fields:
-    name:     entityType
-    data:     metaData
+    name:      entityType
+    data:      metaData
+    read_only: readOnly
+    condition: conditionId
 
 ### Module ###
 module:
