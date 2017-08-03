@@ -613,44 +613,38 @@ def missing_nodes(graph):
 def print_children(graph, parent, seen=None, level=1):
     """Display all the successor nodes from parent
     """
-    if seen is None:
-        seen = []
-    seen.append(parent)
-    for child in graph.successors(parent):
-        print()
-        edge_data = graph.get_edge_data(parent, child)
-        pindent(colorized(edge_data), level)
-        node_data = graph.node[child]
-        if node_data:
-            if child in seen:
-                pindent(colorized(node_data, "white"), level)
-            else:
-                pindent(colorized(node_data), level)
-                if MAX_LEVEL == 0 or MAX_LEVEL > level:
-                    print_children(graph, child, seen, level+1)
-        else:
-            pindent("{} is an undefined reference!".format(child), level)
+    walk_tree(graph, parent, None, level, graph.successors)
 
-def print_parents(graph, child, seen=None, level=1):
+def print_parents(graph, child, level=1):
     """Display all the predecessor nodes from child
+    """
+    walk_tree(graph, child, None, level, graph.predecessors)
+
+def walk_tree(graph, target, seen=None, level=1, func=None):
+    """Display all the parent / child nodes from target
     """
     if seen is None:
         seen = []
-    seen.append(child)
-    for parent in graph.predecessors(child):
+    seen.append(target)
+    for node in func(target):
         print()
-        edge_data = graph.get_edge_data(parent, child)
-        pindent(colorized(edge_data), level)
-        node_data = graph.node[parent]
+        node_data = graph.node[node]
+        if func == graph.predecessors:
+            edge_data = graph.get_edge_data(node, target)
+        else:
+            edge_data = graph.get_edge_data(target, node)
         if node_data:
-            if parent in seen:
+            if node in seen:
                 pindent(colorized(node_data, "white"), level)
+                pindent(colorized(edge_data), level)
             else:
                 pindent(colorized(node_data), level)
+                pindent(colorized(edge_data), level)
                 if MAX_LEVEL == 0 or MAX_LEVEL > level:
-                    print_parents(graph, parent, seen, level+1)
+                    walk_tree(graph, node, seen, level+1, func)
         else:
-            pindent("{} is an undefined reference!".format(parent), level)
+            pindent("{} is an undefined reference!".format(node), level)
+
 
 def select_nodes(graph, query):
     """Obtain list of nodes that match provided pattern
