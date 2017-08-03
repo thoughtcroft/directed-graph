@@ -217,8 +217,8 @@ class XMLParser(object):
             }
 
         c_dict = self._build_dict(node.attrib, topics)
-        c_dict["type"] = "condition"
-        c_dict["condition_type"] = "task"
+        c_dict["type"] = "link"
+        c_dict["link_type"] = "conditional task"
         return c_dict
 
     def _form_dict(self, node):
@@ -231,7 +231,7 @@ class XMLParser(object):
 
         f_dict = self._build_dict(node.attrib, topics)
         f_dict["type"] = "link"
-        f_dict["link_type"] = "Form dependency"
+        f_dict["link_type"] = "form dependency"
         return f_dict
 
     def _prop_dict(self, node):
@@ -244,7 +244,7 @@ class XMLParser(object):
 
         p_dict = self._build_dict(node.attrib, topics)
         p_dict["type"] = "link"
-        p_dict["link_type"] = "Property dependency"
+        p_dict["link_type"] = "property dependency"
         return p_dict
     def _convert_dict(self, node, tag):
         """Convert names/value pairs to dict
