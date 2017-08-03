@@ -13,6 +13,7 @@ from __future__ import print_function
 from builtins import input
 
 # standard libraries
+import copy
 import glob
 import os.path
 import pdb
@@ -122,12 +123,15 @@ class GlowObject(object):
         Returns a limited subset of values: those that
         have keys mapped in the fields dictionary
         """
+        noisy_attributes = (
+            "data", "guid", "tasks",
+            "dependencies", "properties"
+        )
         mapping = {k : self.values[v]
                    for k, v in self.fields.iteritems()
                    if v in self.values}
-        # add type and remove noisy attributes
         mapping["type"] = self.type
-        for attr in ("data", "guid", "tasks", "dependencies"):
+        for attr in noisy_attributes:
             mapping.pop(attr, None)
         return mapping
 
@@ -539,19 +543,33 @@ def add_entity_to_graph(graph, entity):
                 e_dict["name"] = name
                 e_dict["entity"] = entity.name
                 reference = "{}-{}".format(name, entity.name)
+
                 if e_dict["property_type"] == "CMD":
-                    e_dict["type"] = "command"
+                    c_dict = copy.deepcopy(e_dict)
+                    c_dict["type"] = "command"
+                    graph.add_node(reference, c_dict)
                     add_to_command_lookup(name, entity.name)
-                    graph.add_node(reference, e_dict)
+                    cr_dict = copy.deepcopy(e_dict)
+                    cr_dict["type"] = "link"
+                    cr_dict["link_type"] = "command rule"
+                    graph.add_edge(entity.name, reference, cr_dict)
+
                 elif e_dict["property_type"] == "PRP":
-                    e_dict["type"] = "property"
-                    graph.add_node(reference, e_dict)
+                    p_dict = copy.deepcopy(e_dict)
+                    p_dict["type"] = "property"
+                    graph.add_node(reference, p_dict)
+                    cp_dict = copy.deepcopy(e_dict)
+                    cp_dict["type"] = "link"
+                    cp_dict["link_type"] = "calculated property"
+                    graph.add_edge(entity.name, reference, cp_dict)
+
                 if "conditions" in e_dict:
-                    e_dict["type"] = "link"
-                    e_dict["link_type"] = "defaulting rule"
+                    dr_dict = copy.deepcopy(e_dict)
+                    dr_dict["type"] = "link"
+                    dr_dict["link_type"] = "defaulting rule"
                     for condition in e_dict["conditions"]:
                         if condition:
-                            graph.add_edge(entity.name, condition.lower(), e_dict)
+                            graph.add_edge(entity.name, condition.lower(), dr_dict)
 
 def add_to_command_lookup(command, entity):
     """Add discovered command to lookup
