@@ -88,9 +88,9 @@ link:
   type:  link
   color: blue
   display:
-    - name
     - type
     - link_type
+    - name
 
 ### Entity Meta Data - properties of fields etc
 metadata:
@@ -149,9 +149,9 @@ task:
   type:  task
   color: green
   display:
-    - name
     - type
     - task
+    - name
     - entity
     - counts
   fields:
