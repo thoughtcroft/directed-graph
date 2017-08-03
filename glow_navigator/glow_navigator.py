@@ -231,7 +231,7 @@ class XMLParser(object):
 
         f_dict = self._build_dict(node.attrib, topics)
         f_dict["type"] = "link"
-        f_dict["name"] = "Form dependency"
+        f_dict["link_type"] = "Form dependency"
         return f_dict
 
     def _prop_dict(self, node):
@@ -244,7 +244,7 @@ class XMLParser(object):
 
         p_dict = self._build_dict(node.attrib, topics)
         p_dict["type"] = "link"
-        p_dict["name"] = "Property dependency"
+        p_dict["link_type"] = "Property dependency"
         return p_dict
     def _convert_dict(self, node, tag):
         """Convert names/value pairs to dict
@@ -360,26 +360,29 @@ def add_formflow_to_graph(graph, formflow):
     as well as any referenced conditions
     """
     graph.add_node(formflow.guid, formflow.map())
-    f_dict = {
-        "type": "link",
-        "link_type": "formflow"
-    }
+
     if formflow.entity:
+        f_dict = {
+            "type": "link",
+            "link_type": "formflow entity"
+        }
         graph.add_edge(formflow.entity, formflow.guid, f_dict)
 
     if formflow.image:
-        f_dict["link_type"] = "formflow_icon"
-        graph.add_edge(formflow.guid, formflow.image.lower(), f_dict)
+        i_dict = {
+            "type": "link",
+            "link_type": "formflow icon"
+        }
+        graph.add_edge(formflow.guid, formflow.image.lower(), i_dict)
 
     if formflow.conditions:
         for condition in formflow.conditions:
             c_dict = {
-                "type":             "condition",
-                "name":             "If condition",
-                "condition_type":   "formflow",
+                "type":             "link",
+                "link_type":        "formflow condition",
                 "condition":        condition["VWT_ConditionId"].lower(),
                 "guid":             condition["VWT_PK"].lower()
-                }
+            }
             graph.add_edge(formflow.guid, c_dict["condition"], c_dict)
 
     if formflow.tasks:
@@ -441,7 +444,7 @@ def add_template_to_graph(graph, template):
     if template.entity:
         t_dict = {
             "type": "link",
-            "link_type": "template"
+            "link_type": "template entity"
         }
         graph.add_edge(template.entity, template.guid, t_dict)
 
@@ -451,13 +454,13 @@ def add_template_to_graph(graph, template):
         for image in xml_parser.iterfind("AsyncImage"):
             if "image" in image:
                 image["type"] = "link"
-                image["link_type"] = "static_image"
+                image["link_type"] = "static image"
                 graph.add_edge(template.guid, image["image"].lower(), image)
 
         for image in xml_parser.iterfind("Grid"):
             if "image" in image:
                 image["type"] = "link"
-                image["link_type"] = "background_image"
+                image["link_type"] = "background image"
                 graph.add_edge(template.guid, image["image"].lower(), image)
 
         for tile in xml_parser.iterfind("Tile"):

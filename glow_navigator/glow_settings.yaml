@@ -190,8 +190,8 @@ tile:
   type:  tile
   color: cyan
   display:
-    - name
     - type
+    - name
     - description
     - entity
     - counts
