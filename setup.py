@@ -23,7 +23,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='1.1.0',
+    version='1.1.1',
 
     description='Tool for navigating Glow object relationships',
     long_description=long_description,
@@ -60,7 +60,7 @@ setup(
     ],
 
     # What does your project relate to?
-    keywords='wisetech developers directed-graph',
+    keywords='directed-graph',
 
     # You can just specify the packages manually here if your project is
     # simple. Or you can use find_packages().

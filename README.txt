@@ -1,11 +1,11 @@
 Glow Navigator Project
 ======================
 
-This is a prototype for use with the Glow app designer tool developed at WiseTech Global (where I work).
+This is a prototype for use with the an app designer tool at my workplace.
 
 The project uses a directed graph approach to map the relationship between different objects such as
 
-- form-flows
+- formflows
 - templates (pages and forms)
 - conditions
 - command rules
