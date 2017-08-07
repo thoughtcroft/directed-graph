@@ -655,12 +655,13 @@ def walk_tree(graph, target, seen=None, level=1, func=None):
         if node_data:
             if node in seen:
                 pindent(colorized(node_data, "white"), level)
-                pindent(colorized(edge_data), level)
             else:
                 pindent(colorized(node_data), level)
-                pindent(colorized(edge_data), level)
-                if MAX_LEVEL == 0 or MAX_LEVEL > level:
-                    walk_tree(graph, node, seen, level+1, func)
+            for _, edge in edge_data.iteritems():
+                pindent(colorized(edge), level)
+
+            if not node in seen and (MAX_LEVEL == 0 or MAX_LEVEL > level):
+                walk_tree(graph, node, seen, level+1, func)
         else:
             pindent("{} is an undefined reference!".format(node), level)
 
@@ -747,7 +748,7 @@ def main():
                 query = focus
             else:
                 print()
-                query = input("Enter a $$ command or regex for selecting a node: ")
+                query = input("Enter regex for selecting nodes: ")
             if special_command(query):
                 focus = None
                 continue

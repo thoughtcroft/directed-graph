@@ -147,7 +147,7 @@ property:
 ### Task - formflow steps ###
 task:
   type:  task
-  color: green
+  color: blue
   display:
     - type
     - task
@@ -188,7 +188,7 @@ template:
 ### Tile - clickable on templates ###
 tile:
   type:  tile
-  color: cyan
+  color: blue
   display:
     - type
     - name
