@@ -59,10 +59,18 @@ For example to find:
 
 You are only limited by your imagination (and regex skills)
 
-You can also vary the degree of expansion when looking at a specific
+
+Special commands
+----------------
+You vary the degree of expansion when looking at a specific
 object. Entering '$$max_level=n' will stop expanding the parent or
-children beyond the specified level. Default value is '3', setting to '0'
+children beyond the specified level. Default value is '1', setting to '0'
 will expand all available levels.
+
+To ignore particular types of entities when searching and expanding the graph
+use the '$$ignore=foo, bar' to ignore types 'foo' and 'bar'. Just provide an
+empty list to clear out the ignore list.
+
 """)
 
 from . glow_config import settings
@@ -80,7 +88,8 @@ from . glow_utils import (
 
 
 COMMAND_LOOKUP = {}
-MAX_LEVEL = 3
+MAX_LEVEL = 1
+IGNORE_TYPES = []
 
 
 class GlowObject(object):
@@ -538,41 +547,44 @@ def add_entity_to_graph(graph, entity):
         "conditionIds": "conditions"
         }
 
+    link_types = {
+        "CMD": "command",
+        "PRP": "calculated property",
+        "PRO": "defaulting rule",
+        "VAL": "validation rule",
+        "LOO": "lookup rule"
+        }
+
     graph.add_node(entity.name, entity.map())
     if entity.properties:
-        for name, attrs in entity.properties.iteritems():
-            if attrs:
-                e_dict = build_dict(attrs[0], topics)
-                e_dict["name"] = name
-                e_dict["entity"] = entity.name
-                reference = "{}-{}".format(name, entity.name)
+        for name, rules in entity.properties.iteritems():
+            reference = "{}-{}".format(name, entity.name)
+            for rule in rules:
+                r_dict = build_dict(rule, topics)
+                r_dict["name"] = name
+                r_dict["entity"] = entity.name
+                rule_type = r_dict["property_type"]
 
-                if e_dict["property_type"] == "CMD":
-                    c_dict = copy.deepcopy(e_dict)
-                    c_dict["type"] = "command"
-                    graph.add_node(reference, c_dict)
+                if rule_type == "CMD":
+                    r_dict["type"] = "command"
                     add_to_command_lookup(name, entity.name)
-                    cr_dict = copy.deepcopy(e_dict)
-                    cr_dict["type"] = "link"
-                    cr_dict["link_type"] = "command rule"
-                    graph.add_edge(entity.name, reference, cr_dict)
+                else:
+                    r_dict["type"] = "property"
+                graph.add_node(reference, r_dict)
 
-                elif e_dict["property_type"] == "PRP":
-                    p_dict = copy.deepcopy(e_dict)
-                    p_dict["type"] = "property"
-                    graph.add_node(reference, p_dict)
-                    cp_dict = copy.deepcopy(e_dict)
-                    cp_dict["type"] = "link"
-                    cp_dict["link_type"] = "calculated property"
-                    graph.add_edge(entity.name, reference, cp_dict)
+                e_dict = copy.deepcopy(r_dict)
+                e_dict["type"] = "link"
+                if rule_type in link_types:
+                    e_dict["link_type"] = link_types[rule_type]
+                else:
+                    e_dict["link_type"] = "unknown->{}".format(rule_type)
+                graph.add_edge(entity.name, reference, e_dict)
+
 
                 if "conditions" in e_dict:
-                    dr_dict = copy.deepcopy(e_dict)
-                    dr_dict["type"] = "link"
-                    dr_dict["link_type"] = "defaulting rule"
                     for condition in e_dict["conditions"]:
                         if condition:
-                            graph.add_edge(entity.name, condition.lower(), dr_dict)
+                            graph.add_edge(reference, condition.lower(), e_dict)
 
 def add_to_command_lookup(command, entity):
     """Add discovered command to lookup
@@ -630,8 +642,12 @@ def walk_tree(graph, target, seen=None, level=1, func=None):
         seen = []
     seen.append(target)
     for node in func(target):
-        print()
         node_data = graph.node[node]
+        if ("type" in node_data and
+                node_data["type"] in IGNORE_TYPES):
+            continue
+
+        print()
         if func == graph.predecessors:
             edge_data = graph.get_edge_data(node, target)
         else:
@@ -655,6 +671,9 @@ def select_nodes(graph, query):
     nodes = []
     for node in graph:
         node_data = get_node_data(graph, node)
+        if ("type" in node_data and
+                node_data["type"] in IGNORE_TYPES):
+            continue
         if match(query, node_data):
             nodes.append((node, node_data))
     return nodes
@@ -664,19 +683,21 @@ def get_node_data(graph, node):
 
     Adds 'counts: p<c' for parents and children
     """
-    parents = len(graph.predecessors(node))
-    children = len(graph.successors(node))
     node_data = graph.node[node]
-    node_data["counts"] = "{}<{}".format(parents, children)
+    if node_data:
+        parents = len(graph.predecessors(node))
+        children = len(graph.successors(node))
+        node_data["counts"] = "{}<{}".format(parents, children)
     return node_data
 
 def special_command(query):
     """Provide for special commands to change settings
 
-    -> $$max_level=n is the only one supported so far
+    -> '$$max_level=n' to set graph expansion depth
+    -> '$$ignore=foo bar' to ignore foo and bar types
     """
-    global MAX_LEVEL
     if query.startswith("$$max_level="):
+        global MAX_LEVEL
         try:
             level = int(query.rsplit("=")[-1])
         except ValueError:
@@ -690,6 +711,13 @@ def special_command(query):
             print()
         finally:
             return True
+    elif query.startswith("$$ignore="):
+        global IGNORE_TYPES
+        IGNORE_TYPES = query.rsplit("=")[-1].split()
+        print()
+        print("-> IGNORE_TYPES updated to {}".format(IGNORE_TYPES))
+        print()
+        return True
 
 def main():
     """Provide navigation of the selected Glow objects
