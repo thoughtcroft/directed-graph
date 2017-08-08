@@ -139,9 +139,9 @@ property:
   color: magenta
   display:
     - name
-    - property
     - type
     - rule_type
+    - property
     - entity
     - counts
 

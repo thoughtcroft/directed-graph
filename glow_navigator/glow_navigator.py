@@ -349,52 +349,58 @@ def add_metadata_to_graph(graph, metadata, file_name):
                 isinstance(data[rdo_fld], dict) and
                 con_fld in data[rdo_fld]):
             condition_guid = data[rdo_fld][con_fld]
-            c_dict = {
+            dc_dict = {
                 "type":      "link",
                 "link_type": "entity read only condition",
                 }
-            graph.add_edge(metadata.name, condition_guid.lower(), attr_dict=c_dict)
+            graph.add_edge(metadata.name, condition_guid.lower(), attr_dict=dc_dict)
         if "icon" in data:
-            i_dict = {
+            di_dict = {
                 "type":      "link",
                 "link_type": "entity icon",
                 }
-            graph.add_edge(metadata.name, data["icon"].lower(), attr_dict=i_dict)
+            graph.add_edge(metadata.name, data["icon"].lower(), attr_dict=di_dict)
 
     if metadata.properties:
         topics = {
-            "aggregateMode": "rule_type",
+            "aggregateMode": "method",
             "name":          "name",
             "propertyPath":  "property",
             "conditionId":   "condition"
             }
-        e_dict = {
+        pe_dict = {
             "type":      "link",
             "link_type": "property metadata"
             }
         for name, attrs in metadata.properties.iteritems():
-            p_dict = {
+            pp_dict = {
                 "name":   name,
                 "type":   "property",
                 "entity": metadata.name
                 }
             reference = "{}-{}".format(name, metadata.name)
-            graph.add_node(reference, p_dict)
-            graph.add_edge(metadata.name, reference, attr_dict=e_dict)
+            graph.add_node(reference, pp_dict)
+            graph.add_edge(metadata.name, reference, attr_dict=pe_dict)
             for prop in attrs.get("collectionAggregate", []):
-                pp_dict = XMLParser.build_dict(prop, topics)
-                pp_dict["type"] = "property"
-                pp_dict["name"] = pp_dict["name"].replace(" ", "")
-                prop_name = "{}-{}".format(pp_dict["name"], metadata.name)
-                graph.add_node(prop_name, attr_dict=pp_dict)
-                graph.add_edge(metadata.name, prop_name, attr_dict=pp_dict)
-                a_dict = {
+                pc_dict = XMLParser.build_dict(prop, topics)
+                pc_dict["name"] = pc_dict.get("name", "").replace(" ", "")
+                pc_dict["type"] = "property"
+                pc_dict["rule_type"] = "{}.{}".format("Collection", pc_dict["method"])
+                pc_dict["entity"] = metadata.name
+                full_name = pc_dict["name"].replace(" ", "")
+                if "property" in pc_dict:
+                    pty = "{}.{}".format(name, pc_dict["property"])
+                    pc_dict["property"] = pty
+                prop_name = "{}-{}".format(pc_dict["name"], metadata.name)
+                graph.add_node(prop_name, attr_dict=pc_dict)
+                graph.add_edge(metadata.name, prop_name, attr_dict=pe_dict)
+                pl_dict = {
                     "type":      "link",
                     "link_type": "aggregate rule"
                     }
-                graph.add_edge(reference, prop_name, attr_dict=a_dict)
+                graph.add_edge(reference, prop_name, attr_dict=pl_dict)
                 if "condition" in pp_dict:
-                    graph.add_edge(prop_name, pp_dict["condition"].lower(), attr_dict=a_dict)
+                    graph.add_edge(prop_name, pp_dict["condition"].lower(), attr_dict=pa_dict)
 
 def add_formflow_to_graph(graph, formflow):
     """Add a formflow object and its edges to the graph
@@ -596,6 +602,7 @@ def add_entity_to_graph(graph, entity):
                     add_to_command_lookup(name, entity.name)
                 else:
                     r_dict["type"] = "property"
+
                 graph.add_node(reference, r_dict)
 
                 e_dict = copy.deepcopy(r_dict)
@@ -605,7 +612,6 @@ def add_entity_to_graph(graph, entity):
                 else:
                     e_dict["link_type"] = "unknown->{}".format(rule_type)
                 graph.add_edge(entity.name, reference, attr_dict=e_dict)
-
 
                 if "conditions" in e_dict:
                     for condition in e_dict["conditions"]:
