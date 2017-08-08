@@ -201,7 +201,7 @@ class XMLParser(object):
             }
 
         ph_dict = self._convert_dict(node, "Placeholder")
-        return self._build_dict(ph_dict, topics)
+        return self.build_dict(ph_dict, topics)
 
     def _grid_dict(self, node):
         """Create the dictionary of the form Grid
@@ -225,7 +225,7 @@ class XMLParser(object):
             "SelectedCondition": "condition",
             }
 
-        c_dict = self._build_dict(node.attrib, topics)
+        c_dict = self.build_dict(node.attrib, topics)
         c_dict["type"] = "link"
         c_dict["link_type"] = "conditional task"
         return c_dict
@@ -238,7 +238,7 @@ class XMLParser(object):
             "path":       "property"
             }
 
-        f_dict = self._build_dict(node.attrib, topics)
+        f_dict = self.build_dict(node.attrib, topics)
         f_dict["type"] = "link"
         f_dict["link_type"] = "form dependency"
         return f_dict
@@ -251,7 +251,7 @@ class XMLParser(object):
             "propertypath": "property"
             }
 
-        p_dict = self._build_dict(node.attrib, topics)
+        p_dict = self.build_dict(node.attrib, topics)
         p_dict["type"] = "link"
         p_dict["link_type"] = "property dependency"
         return p_dict
@@ -269,7 +269,7 @@ class XMLParser(object):
         return p_dict
 
     @staticmethod
-    def _build_dict(attrib, topics):
+    def build_dict(attrib, topics):
         """Build a dictionary of topics using attributes
         """
         result = {}
@@ -340,26 +340,61 @@ def add_metadata_to_graph(graph, metadata, file_name):
         "entity": metadata.name
     }
     graph.add_node(metadata.name, m_dict)
-    if not metadata.data:
-        return
 
-    data = metadata.data
-    m_dict = {
-        "name":      "Entity metadata",
-        "type":      "link"
-    }
-    rdo_fld = metadata.fields["read_only"]
-    con_fld = metadata.fields["condition"]
-    if (rdo_fld in data and
-            isinstance(data[rdo_fld], dict) and
-            con_fld in data[rdo_fld]):
-        condition_guid = data[rdo_fld][con_fld]
-        m_dict["link_type"] = "read_only"
-        graph.add_edge(metadata.name, condition_guid.lower(), attr_dict=m_dict)
+    if metadata.data:
+        data = metadata.data
+        rdo_fld = metadata.fields["read_only"]
+        con_fld = metadata.fields["condition"]
+        if (rdo_fld in data and
+                isinstance(data[rdo_fld], dict) and
+                con_fld in data[rdo_fld]):
+            condition_guid = data[rdo_fld][con_fld]
+            c_dict = {
+                "type":      "link",
+                "link_type": "entity read only condition",
+                }
+            graph.add_edge(metadata.name, condition_guid.lower(), attr_dict=c_dict)
+        if "icon" in data:
+            i_dict = {
+                "type":      "link",
+                "link_type": "entity icon",
+                }
+            graph.add_edge(metadata.name, data["icon"].lower(), attr_dict=i_dict)
 
-    if "icon" in data:
-        m_dict["link_type"] = "icon_image"
-        graph.add_edge(metadata.name, data["icon"].lower(), attr_dict=m_dict)
+    if metadata.properties:
+        topics = {
+            "aggregateMode": "rule_type",
+            "name":          "name",
+            "propertyPath":  "property",
+            "conditionId":   "condition"
+            }
+        e_dict = {
+            "type":      "link",
+            "link_type": "property metadata"
+            }
+        for name, attrs in metadata.properties.iteritems():
+            p_dict = {
+                "name":   name,
+                "type":   "property",
+                "entity": metadata.name
+                }
+            reference = "{}-{}".format(name, metadata.name)
+            graph.add_node(reference, p_dict)
+            graph.add_edge(metadata.name, reference, attr_dict=e_dict)
+            for prop in attrs.get("collectionAggregate", []):
+                pp_dict = XMLParser.build_dict(prop, topics)
+                pp_dict["type"] = "property"
+                pp_dict["name"] = pp_dict["name"].replace(" ", "")
+                prop_name = "{}-{}".format(pp_dict["name"], metadata.name)
+                graph.add_node(prop_name, attr_dict=pp_dict)
+                graph.add_edge(metadata.name, prop_name, attr_dict=pp_dict)
+                a_dict = {
+                    "type":      "link",
+                    "link_type": "aggregate rule"
+                    }
+                graph.add_edge(reference, prop_name, attr_dict=a_dict)
+                if "condition" in pp_dict:
+                    graph.add_edge(prop_name, pp_dict["condition"].lower(), attr_dict=a_dict)
 
 def add_formflow_to_graph(graph, formflow):
     """Add a formflow object and its edges to the graph
@@ -531,15 +566,6 @@ def add_entity_to_graph(graph, entity):
     - adds calculated properties
     - looks for conditions referenced in rules
     """
-    def build_dict(attrib, topics):
-        """Build a dictionary of topics using attributes
-        """
-        result = {}
-        for key, field in topics.iteritems():
-            if key in attrib:
-                result[field] = attrib[key]
-        return result
-
     topics = {
         "ruleId":       "guid",
         "ruleType":     "property_type",
@@ -560,7 +586,7 @@ def add_entity_to_graph(graph, entity):
         for name, rules in entity.properties.iteritems():
             reference = "{}-{}".format(name, entity.name)
             for rule in rules:
-                r_dict = build_dict(rule, topics)
+                r_dict = XMLParser.build_dict(rule, topics)
                 r_dict["name"] = name
                 r_dict["entity"] = entity.name
                 rule_type = r_dict["property_type"]
