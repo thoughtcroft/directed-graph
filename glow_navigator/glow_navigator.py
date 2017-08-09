@@ -385,7 +385,7 @@ def add_metadata_to_graph(graph, metadata, file_name):
                 pc_dict = XMLParser.build_dict(prop, topics)
                 pc_dict["name"] = pc_dict.get("name", "").replace(" ", "")
                 pc_dict["type"] = "property"
-                pc_dict["rule_type"] = "{}.{}".format("Collection", pc_dict["method"])
+                pc_dict["rule_type"] = "Aggregate{}".format(pc_dict["method"])
                 pc_dict["entity"] = metadata.name
                 full_name = pc_dict["name"].replace(" ", "")
                 if "property" in pc_dict:
