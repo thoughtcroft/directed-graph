@@ -368,10 +368,6 @@ def add_metadata_to_graph(graph, metadata, file_name):
             "propertyPath":  "property",
             "conditionId":   "condition"
             }
-        pe_dict = {
-            "type":      "link",
-            "link_type": "property metadata"
-            }
         for name, attrs in metadata.properties.iteritems():
             pp_dict = {
                 "name":   name,
@@ -380,7 +376,6 @@ def add_metadata_to_graph(graph, metadata, file_name):
                 }
             reference = "{}-{}".format(name, metadata.name)
             graph.add_node(reference, pp_dict)
-            graph.add_edge(metadata.name, reference, attr_dict=pe_dict)
             for prop in attrs.get("collectionAggregate", []):
                 pc_dict = XMLParser.build_dict(prop, topics)
                 pc_dict["name"] = pc_dict.get("name", "").replace(" ", "")
@@ -393,7 +388,6 @@ def add_metadata_to_graph(graph, metadata, file_name):
                     pc_dict["property"] = pty
                 prop_name = "{}-{}".format(pc_dict["name"], metadata.name)
                 graph.add_node(prop_name, attr_dict=pc_dict)
-                graph.add_edge(metadata.name, prop_name, attr_dict=pe_dict)
                 pl_dict = {
                     "type":      "link",
                     "link_type": "aggregate rule"
