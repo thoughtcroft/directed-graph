@@ -29,8 +29,7 @@ def load_file(file_name):
     try:
         return yaml.load(open(file_name, "r"))
     except yaml.scanner.ScannerError as err_msg:
-        print()
-        print("-> Error: '{}' in {}".format(err_msg, file_name))
+        print("\n\n-> Error: '{}' in {}".format(err_msg, file_name))
 
 def raw_guid(guid):
     """Remove hyphens from string guid
@@ -53,15 +52,20 @@ def glow_file_object(name):
     if name in settings:
         return settings[name]
 
-def glow_file_objects(omit=None):
+def glow_file_objects(*args, **kwargs):
     """Return the glow objects with files
 
-    Ignore any objects passed in omit list
+    If there are args then the list is restricted to
+    just those. If omit is passed ignore those ones.
     """
-    if omit is None:
-        omit = []
+    omit = set(kwargs.pop('omit', []))
+    if args:
+        include = set(args)
+    else:
+        include = set(settings.keys())
+    candidates = include.difference(omit)
     return (v for k, v in settings.iteritems()
-            if "path" in v and not k in omit)
+            if "path" in v and k in candidates)
 
 
 ## Printing in color and indenting for readibility

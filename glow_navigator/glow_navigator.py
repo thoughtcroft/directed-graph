@@ -151,10 +151,7 @@ class XMLParser(object):
     """
 
     def __init__(self, xml):
-        try:
-            self.tree = ET.fromstring(xml.encode(encoding='utf-8'))
-        except UnicodeEncodeError:
-            pdb.set_trace()
+        self.tree = ET.fromstring(xml.encode(encoding='utf-8'))
 
     def iterfind(self, tag):
         """Generator for elements matching tag
@@ -165,6 +162,29 @@ class XMLParser(object):
         for node in self.tree.iter():
             if self.remove_xmlns(node.tag) == tag:
                 yield self._data(node, tag)
+
+    def bound_properties(self):
+        """Return a set of properties bound to fields
+        """
+        result_set = set()
+        for node in self.tree.iter():
+            n_dict = self._ph_dict(node)
+            if "property" in n_dict:
+                result_set.add(n_dict["property"])
+        return result_set
+
+    def column_definitions(self):
+        """Return properties referenced in column definitions
+        """
+        result_set = set()
+        for node in self.tree.iter():
+            n_dict = self._ph_dict(node)
+            if "columns" in n_dict:
+                my_xml = XMLParser(n_dict["columns"])
+                for my_node in my_xml.tree.iter():
+                    if self.remove_xmlns(my_node.tag) == "FieldName":
+                        result_set.add(my_node.text)
+        return result_set
 
     def _data(self, node, tag):
         """Generate the object according to tag
@@ -189,15 +209,17 @@ class XMLParser(object):
         {topic: amount} if value has been set
         """
         topics = {
-            "Text":              "name",
-            "Description":       "description",
-            "PagePK":            "template",
-            "Page":              "template_name",
-            "Workflow":          "formflow",
-            "Image":             "image",
-            "CommandRule":       "command",
             "BackgroundImagePk": "image",
-            "Url":               "url"
+            "BindingPath":       "property",
+            "ColumnDefinitions": "columns",
+            "CommandRule":       "command",
+            "Description":       "description",
+            "Image":             "image",
+            "Page":              "template_name",
+            "PagePK":            "template",
+            "Text":              "name",
+            "Url":               "url",
+            "Workflow":          "formflow"
             }
 
         ph_dict = self._convert_dict(node, "Placeholder")
@@ -255,6 +277,7 @@ class XMLParser(object):
         p_dict["type"] = "link"
         p_dict["link_type"] = "property dependency"
         return p_dict
+
     def _convert_dict(self, node, tag):
         """Convert names/value pairs to dict
 
@@ -293,18 +316,23 @@ def create_graph():
     """
     graph = nx.MultiDiGraph(name="Glow")
 
-    # add entity first so the command dict is available
-    attrs = glow_file_object("entity")
-    abs_path = os.path.abspath(attrs["path"])
-    label_text = "{0:25}".format("Loading entities")
-    with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as progress_bar:
-        for file_name in progress_bar:
-            values = load_file(file_name)
-            values["name"] = base_name(file_name)
-            glow_object = GlowObject(attrs, values)
-            add_entity_to_graph(graph, glow_object)
+    # add entity and metadata first so the command dict is available
+    for attrs in glow_file_objects("entity", "metadata"):
+        abs_path = os.path.abspath(attrs["path"])
+        label_text = "{0:25}".format("Loading {} list".format(attrs["type"]))
+        with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as progress_bar:
+            for file_name in progress_bar:
+                values = load_file(file_name)
+                if not values:
+                    continue
+                glow_object = GlowObject(attrs, values)
+                if glow_object.type == "entity":
+                    add_entity_to_graph(graph, glow_object, file_name)
+                if glow_object.type == "metadata":
+                    add_metadata_to_graph(graph, glow_object, file_name)
 
-    for attrs in glow_file_objects(omit=["entity"]):
+
+    for attrs in glow_file_objects(omit=["entity", "metadata"]):
         abs_path = os.path.abspath(attrs["path"])
         label_text = "{0:25}".format("Analysing {}s".format(attrs["type"]))
         with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as progress_bar:
@@ -319,8 +347,6 @@ def create_graph():
                     add_formflow_to_graph(graph, glow_object)
                 if glow_object.type == "image":
                     graph.add_node(glow_object.guid, glow_object.map())
-                if glow_object.type == "metadata":
-                    add_metadata_to_graph(graph, glow_object, file_name)
                 if glow_object.type == "module":
                     add_module_to_graph(graph, glow_object)
                 if glow_object.type == "template":
@@ -382,7 +408,6 @@ def add_metadata_to_graph(graph, metadata, file_name):
                 pc_dict["type"] = "property"
                 pc_dict["rule_type"] = "Aggregate{}".format(pc_dict["method"])
                 pc_dict["entity"] = metadata.name
-                full_name = pc_dict["name"].replace(" ", "")
                 if "property" in pc_dict:
                     pty = "{}.{}".format(name, pc_dict["property"])
                     pc_dict["property"] = pty
@@ -460,9 +485,12 @@ def add_condition_to_graph(graph, condition, file_name):
     graph.add_node(guid, condition.map())
     if condition.expression:
         xml_parser = XMLParser(condition.expression)
+        properties = {}
         for prop in xml_parser.iterfind("simpleConditionExpression"):
             reference = "{}-{}".format(prop["property"], condition.entity)
-            add_property_edge_if_exists(graph, guid, reference, prop)
+            properties[reference] = prop
+        for prop, attrs in properties.iteritems():
+            add_property_edge_if_exists(graph, guid, prop, attrs)
 
 def add_module_to_graph(graph, module):
     """Add a module object and its edges to the graph
@@ -487,13 +515,29 @@ def add_template_to_graph(graph, template):
     graph.add_node(template.guid, template.map())
     if template.entity:
         t_dict = {
-            "type": "link",
+            "type":      "link",
             "link_type": "template entity"
         }
         graph.add_edge(template.entity, template.guid, attr_dict=t_dict)
 
     if template.data:
         xml_parser = XMLParser(template.data)
+
+        bp_dict = {
+            "type":      "link",
+            "link_type": "bound property"
+            }
+        for prop in xml_parser.bound_properties():
+            reference = "{}-{}".format(prop, template.entity)
+            add_property_edge_if_exists(graph, template.guid, reference, bp_dict)
+
+        cd_dict = {
+            "type":      "link",
+            "link_type": "column definition"
+            }
+        for prop in xml_parser.column_definitions():
+            reference = "{}-{}".format(prop, template.entity)
+            add_property_edge_if_exists(graph, template.guid, reference, cd_dict)
 
         for image in xml_parser.iterfind("AsyncImage"):
             if "image" in image:
@@ -554,9 +598,9 @@ def update_template_reference(attrs):
     try:
         attrs["template"] = template_lookup[attrs["template_name"]]
     except KeyError as err_msg:
-        print("-> Error: '{}' looking up {}".format(err_msg, attrs))
+        print("\n-> Error: '{}' looking up {}".format(err_msg, attrs))
 
-def add_entity_to_graph(graph, entity):
+def add_entity_to_graph(graph, entity, file_name):
     """Add entity level information to the graph
 
     - adds Command Rules based on 'name' as 'guid'
@@ -581,6 +625,10 @@ def add_entity_to_graph(graph, entity):
         "LOO": "lookup rule"
         }
 
+    if not entity.name:
+        field = entity.fields["name"]
+        entity.name = base_name(file_name)
+        entity.values[field] = entity.name
     graph.add_node(entity.name, entity.map())
     if entity.properties:
         for name, rules in entity.properties.iteritems():
