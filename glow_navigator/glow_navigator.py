@@ -163,14 +163,14 @@ class XMLParser(object):
             if self.remove_xmlns(node.tag) == tag:
                 yield self._data(node, tag)
 
-    def bound_properties(self):
-        """Return a set of properties bound to fields
+    def properties_by_name(self, name):
+        """Return a set of properties from all elements
         """
         result_set = set()
         for node in self.tree.iter():
             n_dict = self._ph_dict(node)
-            if "property" in n_dict:
-                result_set.add(n_dict["property"])
+            if name in n_dict:
+                result_set.add(n_dict[name])
         return result_set
 
     def column_definitions(self):
@@ -217,6 +217,7 @@ class XMLParser(object):
             "Image":             "image",
             "Page":              "template_name",
             "PagePK":            "template",
+            "TemplateID":        "component",
             "Text":              "name",
             "Url":               "url",
             "Workflow":          "formflow"
@@ -514,30 +515,41 @@ def add_template_to_graph(graph, template):
     """
     graph.add_node(template.guid, template.map())
     if template.entity:
-        t_dict = {
-            "type":      "link",
-            "link_type": "template entity"
-        }
-        graph.add_edge(template.entity, template.guid, attr_dict=t_dict)
+        graph.add_edge(
+            template.entity, template.guid,
+            attr_dict={
+                "type":      "link",
+                "link_type": "template entity"
+                })
 
     if template.data:
         xml_parser = XMLParser(template.data)
 
-        bp_dict = {
-            "type":      "link",
-            "link_type": "bound property"
-            }
-        for prop in xml_parser.bound_properties():
-            reference = "{}-{}".format(prop, template.entity)
-            add_property_edge_if_exists(graph, template.guid, reference, bp_dict)
+        for component in xml_parser.properties_by_name("component"):
+            graph.add_edge(
+                template.guid, component.lower(),
+                attr_dict={
+                    "type":      "link",
+                    "link_type": "component template"
+                })
 
-        cd_dict = {
-            "type":      "link",
-            "link_type": "column definition"
-            }
+        for prop in xml_parser.properties_by_name("property"):
+            reference = "{}-{}".format(prop, template.entity)
+            add_property_edge_if_exists(
+                graph, template.guid, reference,
+                {
+                    "type":      "link",
+                    "link_type": "bound property"
+                })
+
         for prop in xml_parser.column_definitions():
             reference = "{}-{}".format(prop, template.entity)
-            add_property_edge_if_exists(graph, template.guid, reference, cd_dict)
+            add_property_edge_if_exists(
+                graph, template.guid, reference,
+                {
+                    "type":      "link",
+                    "link_type": "column definition"
+                })
 
         for image in xml_parser.iterfind("AsyncImage"):
             if "image" in image:
@@ -699,15 +711,15 @@ def missing_nodes(graph):
                     print("-> from : {}".format(graph.node[caller]))
                     print("    via : {}".format(edge))
 
-def print_children(graph, parent, seen=None, level=1):
+def print_children(graph, parent):
     """Display all the successor nodes from parent
     """
-    walk_tree(graph, parent, None, level, graph.successors)
+    walk_tree(graph, parent, func=graph.successors)
 
-def print_parents(graph, child, level=1):
+def print_parents(graph, child):
     """Display all the predecessor nodes from child
     """
-    walk_tree(graph, child, None, level, graph.predecessors)
+    walk_tree(graph, child, func=graph.predecessors)
 
 def walk_tree(graph, target, seen=None, level=1, func=None):
     """Display all the parent / child nodes from target
