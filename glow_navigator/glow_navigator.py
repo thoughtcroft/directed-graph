@@ -215,6 +215,7 @@ class XMLParser(object):
             "CommandRule":       "command",
             "Description":       "description",
             "Image":             "image",
+            "Link":              "property",
             "Page":              "template_name",
             "PagePK":            "template",
             "TemplateID":        "component",
@@ -568,7 +569,7 @@ def add_template_to_graph(graph, template):
             if not "entity" in tile and template.entity:
                 tile["entity"] = template.entity
             if "template_name" in tile:
-                # need to correct for old style references
+                # need to correct for old style references before checking 'template'
                 update_template_reference(tile)
             if "template" in tile:
                 graph.add_edge(template.guid, tile["template"].lower(), attr_dict=tile)
@@ -580,6 +581,9 @@ def add_template_to_graph(graph, template):
                 graph.add_edge(template.guid, command, attr_dict=tile)
             if "image" in tile:
                 graph.add_edge(template.guid, tile["image"].lower(), attr_dict=tile)
+            if "property" in tile:
+                reference = "{}-{}".format(tile["property"], template.entity)
+                add_property_edge_if_exists(graph, template.guid, reference, tile)
 
     if template.dependencies:
         xml_parser = XMLParser(template.dependencies)
