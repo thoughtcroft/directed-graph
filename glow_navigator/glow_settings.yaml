@@ -83,6 +83,23 @@ image:
     color:      SK_IsColorizable
     image_type: SK_MediaType
 
+### Index ###
+index:
+  type:  index
+  color: blue
+  path: DotNet/Infrastructure/Index/Configuration/Entities/*.yaml
+  display:
+    - name
+    - type
+    - property
+    - entity
+    - counts
+  fields:
+    name:       entityType
+    categories: categories
+    mappings:   indexFields
+    related:    relatedEntities
+
 ### Link - generic for landing page and others ###
 link:
   type:  link

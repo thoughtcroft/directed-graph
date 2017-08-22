@@ -71,6 +71,9 @@ To ignore particular types of entities when searching and expanding the graph
 use the '$$ignore=foo, bar' to ignore types 'foo' and 'bar'. Just provide an
 empty list to clear out the ignore list.
 
+To include edges in matches, use the $$edges=True|False command. Default is
+False to not search for matches in the edges atttached to a node.
+
 """)
 
 from . glow_config import settings
@@ -90,6 +93,7 @@ from . glow_utils import (
 COMMAND_LOOKUP = {}
 MAX_LEVEL = 1
 IGNORE_TYPES = []
+EDGE_MATCH = False
 
 
 class GlowObject(object):
@@ -349,6 +353,8 @@ def create_graph():
                     add_formflow_to_graph(graph, glow_object)
                 if glow_object.type == "image":
                     graph.add_node(glow_object.guid, glow_object.map())
+                if glow_object.type == "index":
+                    add_index_to_graph(graph, glow_object, file_name)
                 if glow_object.type == "module":
                     add_module_to_graph(graph, glow_object)
                 if glow_object.type == "template":
@@ -493,6 +499,30 @@ def add_condition_to_graph(graph, condition, file_name):
             properties[reference] = prop
         for prop, attrs in properties.iteritems():
             add_property_edge_if_exists(graph, guid, prop, attrs)
+
+def add_index_to_graph(graph, entity, file_name):
+    """Add an entity index object to the graph
+    """
+    topics = {
+        "name":           "name",
+        "propertyPath":   "property",
+        "keyField":       "show_in_results",
+        "trackingCommon": "trackable",
+        "searchable":     "searchable",
+        "common":         "quick_search",
+        "where":          "conditional"
+    }
+
+    entity_name = base_name(file_name)
+    if entity.mappings:
+        for field in entity.mappings:
+            index = XMLParser.build_dict(field, topics)
+            index["entity"] = entity_name
+            index["type"] = "index"
+            graph.add_node(index["name"], index)
+            prop = "{}-{}".format(index["property"], entity_name)
+            add_property_edge_if_exists(graph, index["name"], prop,
+                                            {"type": "link", "link_type": "index"})
 
 def add_module_to_graph(graph, module):
     """Add a module object and its edges to the graph
@@ -758,15 +788,25 @@ def walk_tree(graph, target, seen=None, level=1, func=None):
 
 def select_nodes(graph, query):
     """Obtain list of nodes that match provided pattern
+
+    Also match if any of the edges also match
     """
     nodes = []
     for node in graph:
         node_data = get_node_data(graph, node)
-        if ("type" in node_data and
-                node_data["type"] in IGNORE_TYPES):
+        if node_data.get("type") in IGNORE_TYPES:
             continue
-        if match(query, node_data):
+        elif match(query, node_data):
             nodes.append((node, node_data))
+            continue
+        if EDGE_MATCH:
+            for edge in graph.edges_iter(node, data=True):
+                _, _, edge_data = edge
+                if edge_data.get("type") in IGNORE_TYPES:
+                    continue
+                elif match(query, edge_data):
+                    nodes.append((node, node_data))
+                    break
     return nodes
 
 def get_node_data(graph, node):
@@ -786,6 +826,7 @@ def special_command(query):
 
     -> '$$max_level=n' to set graph expansion depth
     -> '$$ignore=foo bar' to ignore foo and bar types
+    -> '$$edges=True' to include edges in the match
     """
     if query.startswith("$$max_level="):
         global MAX_LEVEL
@@ -809,6 +850,15 @@ def special_command(query):
         print("-> IGNORE_TYPES updated to {}".format(IGNORE_TYPES))
         print()
         return True
+    elif query.startswith("$$edges="):
+        global EDGE_MATCH
+        value = query.rsplit("=")[-1].lower()
+        EDGE_MATCH = {"true": True, "false": False}.get(value, False)
+        print()
+        print("-> EDGE_MATCH updated to {}".format(EDGE_MATCH))
+        print()
+        return True
+
 
 def main():
     """Provide navigation of the selected Glow objects
