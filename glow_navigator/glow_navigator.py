@@ -512,6 +512,10 @@ def add_index_to_graph(graph, entity, file_name):
         "common":         "quick_search",
         "where":          "conditional"
     }
+    i_dict = {
+        "type": "link",
+        "link_type": "index"
+    }
 
     entity_name = base_name(file_name)
     if entity.mappings:
@@ -519,10 +523,11 @@ def add_index_to_graph(graph, entity, file_name):
             index = XMLParser.build_dict(field, topics)
             index["entity"] = entity_name
             index["type"] = "index"
-            graph.add_node(index["name"], index)
-            prop = "{}-{}".format(index["property"], entity_name)
-            add_property_edge_if_exists(graph, index["name"], prop,
-                                            {"type": "link", "link_type": "index"})
+            index_ref = "{}-{}".format(index["name"], entity_name)
+            graph.add_node(index_ref, index)
+            graph.add_edge(entity_name, index_ref, attr_dict=i_dict)
+            prop_ref = "{}-{}".format(index["property"], entity_name)
+            add_property_edge_if_exists(graph, index_ref, prop_ref, i_dict)
 
 def add_module_to_graph(graph, module):
     """Add a module object and its edges to the graph
