@@ -16,7 +16,6 @@ from builtins import input
 import copy
 import glob
 import os.path
-import pdb
 import re
 try:
     import readline                 # pylint: disable=unused-import
@@ -82,7 +81,6 @@ from . glow_utils import (
     base_name,
     colorized,
     full_guid,
-    glow_file_object,
     glow_file_objects,
     invalid_regex,
     load_file,
@@ -313,6 +311,7 @@ class XMLParser(object):
         """
         return re.sub(r"\{.*\}", "", text)
 
+
 def create_graph():
     """Create directed graph of objects
 
@@ -322,8 +321,8 @@ def create_graph():
     """
     graph = nx.MultiDiGraph(name="Glow")
 
-    # add entity and metadata first so the command dict is available
-    for attrs in glow_file_objects("entity", "metadata"):
+    # add entity related stuff first so the command dict is available
+    for attrs in glow_file_objects("entity", "metadata", "index"):
         abs_path = os.path.abspath(attrs["path"])
         label_text = "{0:25}".format("Loading {} list".format(attrs["type"]))
         with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as progress_bar:
@@ -334,11 +333,12 @@ def create_graph():
                 glow_object = GlowObject(attrs, values)
                 if glow_object.type == "entity":
                     add_entity_to_graph(graph, glow_object, file_name)
-                if glow_object.type == "metadata":
+                elif glow_object.type == "index":
+                    add_index_to_graph(graph, glow_object, file_name)
+                elif glow_object.type == "metadata":
                     add_metadata_to_graph(graph, glow_object, file_name)
 
-
-    for attrs in glow_file_objects(omit=["entity", "metadata"]):
+    for attrs in glow_file_objects(omit=["entity", "metadata", "index"]):
         abs_path = os.path.abspath(attrs["path"])
         label_text = "{0:25}".format("Analysing {}s".format(attrs["type"]))
         with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as progress_bar:
@@ -349,15 +349,13 @@ def create_graph():
                 glow_object = GlowObject(attrs, values)
                 if glow_object.type == "condition":
                     add_condition_to_graph(graph, glow_object, file_name)
-                if glow_object.type == "formflow":
+                elif glow_object.type == "formflow":
                     add_formflow_to_graph(graph, glow_object)
-                if glow_object.type == "image":
+                elif glow_object.type == "image":
                     graph.add_node(glow_object.guid, glow_object.map())
-                if glow_object.type == "index":
-                    add_index_to_graph(graph, glow_object, file_name)
-                if glow_object.type == "module":
+                elif glow_object.type == "module":
                     add_module_to_graph(graph, glow_object)
-                if glow_object.type == "template":
+                elif glow_object.type == "template":
                     add_template_to_graph(graph, glow_object)
     return graph
 
@@ -427,7 +425,7 @@ def add_metadata_to_graph(graph, metadata, file_name):
                     }
                 graph.add_edge(reference, prop_name, attr_dict=pl_dict)
                 if "condition" in pp_dict:
-                    graph.add_edge(prop_name, pp_dict["condition"].lower(), attr_dict=pa_dict)
+                    graph.add_edge(prop_name, pp_dict["condition"].lower(), attr_dict=pl_dict)
 
 def add_formflow_to_graph(graph, formflow):
     """Add a formflow object and its edges to the graph
