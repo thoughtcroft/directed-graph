@@ -81,6 +81,7 @@ from . glow_utils import (
     base_name,
     colorized,
     full_guid,
+    glow_file_object,
     glow_file_objects,
     invalid_regex,
     load_file,
@@ -322,7 +323,7 @@ def create_graph():
     graph = nx.MultiDiGraph(name="Glow")
 
     # add entity related stuff first so the command dict is available
-    for attrs in glow_file_objects("entity", "metadata", "index"):
+    for attrs in (glow_file_object(x) for x in ["entity", "metadata", "index"]):
         abs_path = os.path.abspath(attrs["path"])
         label_text = "{0:25}".format("Loading {} list".format(attrs["type"]))
         with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as progress_bar:
