@@ -515,6 +515,7 @@ def add_index_to_graph(graph, entity, file_name):
         "common":         "quick_search",
         "where":          "conditional"
     }
+
     i_dict = {
         "type": "link",
         "link_type": "index"
@@ -526,10 +527,11 @@ def add_index_to_graph(graph, entity, file_name):
             index = XMLParser.build_dict(field, topics)
             index["entity"] = entity_name
             index["type"] = "index"
-            graph.add_node(index["name"], {"type": "index", "name": index["name"]})
-            graph.add_edge(entity_name, index["name"], attr_dict=index)
+            index_name = index["name"].upper()
+            graph.add_node(index_name, {"type": "index", "name": index["name"]})
+            graph.add_edge(entity_name, index_name, attr_dict=index)
             prop_ref = "{}-{}".format(index["property"], entity_name)
-            add_property_edge_if_exists(graph, index["name"], prop_ref, i_dict)
+            add_property_edge_if_exists(graph, index_name, prop_ref, i_dict)
 
 def add_module_to_graph(graph, module):
     """Add a module object and its edges to the graph
@@ -586,8 +588,9 @@ def add_template_to_graph(graph, template):
         }
         for entity, search_list, prop in xml_parser.column_definitions():
             if search_list == "Global":
-                graph.add_node(prop)
-                graph.add_edge(template.guid, prop, attr_dict=cd_dict)
+                index_name = prop.upper()
+                graph.add_node(index_name)
+                graph.add_edge(template.guid, index_name, attr_dict=cd_dict)
             else:
                 reference = "{}-{}".format(prop, template.entity)
                 add_property_edge_if_exists(graph, template.guid, reference, cd_dict)
