@@ -184,9 +184,11 @@ class XMLParser(object):
             n_dict = self._ph_dict(node)
             if "columns" in n_dict:
                 my_xml = XMLParser(n_dict["columns"])
+                search_list = n_dict.get("search_list")
+                entity = n_dict.get("entity")
                 for my_node in my_xml.tree.iter():
                     if self.remove_xmlns(my_node.tag) == "FieldName":
-                        result_set.add(my_node.text)
+                        result_set.add((entity, search_list, my_node.text))
         return result_set
 
     def _data(self, node, tag):
@@ -217,6 +219,8 @@ class XMLParser(object):
             "ColumnDefinitions": "columns",
             "CommandRule":       "command",
             "Description":       "description",
+            "EntityType":        "entity",
+            "FilterType":        "search_list",
             "Image":             "image",
             "Link":              "property",
             "Page":              "template_name",
@@ -522,11 +526,10 @@ def add_index_to_graph(graph, entity, file_name):
             index = XMLParser.build_dict(field, topics)
             index["entity"] = entity_name
             index["type"] = "index"
-            index_ref = "{}-{}".format(index["name"], entity_name)
-            graph.add_node(index_ref, index)
-            graph.add_edge(entity_name, index_ref, attr_dict=i_dict)
+            graph.add_node(index["name"], {"type": "index", "name": index["name"]})
+            graph.add_edge(entity_name, index["name"], attr_dict=index)
             prop_ref = "{}-{}".format(index["property"], entity_name)
-            add_property_edge_if_exists(graph, index_ref, prop_ref, i_dict)
+            add_property_edge_if_exists(graph, index["name"], prop_ref, i_dict)
 
 def add_module_to_graph(graph, module):
     """Add a module object and its edges to the graph
@@ -577,14 +580,17 @@ def add_template_to_graph(graph, template):
                     "link_type": "bound property"
                 })
 
-        for prop in xml_parser.column_definitions():
-            reference = "{}-{}".format(prop, template.entity)
-            add_property_edge_if_exists(
-                graph, template.guid, reference,
-                {
-                    "type":      "link",
-                    "link_type": "column definition"
-                })
+        cd_dict = {
+            "type":      "link",
+            "link_type": "column definition"
+        }
+        for entity, search_list, prop in xml_parser.column_definitions():
+            if search_list == "Global":
+                graph.add_node(prop)
+                graph.add_edge(template.guid, prop, attr_dict=cd_dict)
+            else:
+                reference = "{}-{}".format(prop, template.entity)
+                add_property_edge_if_exists(graph, template.guid, reference, cd_dict)
 
         for image in xml_parser.iterfind("AsyncImage"):
             if "image" in image:
