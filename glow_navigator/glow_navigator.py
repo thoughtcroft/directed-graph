@@ -30,51 +30,6 @@ import click
 import networkx as nx
 from colorama import init
 
-# put this out as import generation takes time
-start_time = time.time()
-print("""
-
-    Welcome to the Glow Navigator
-    -----------------------------
-
-This is a prototype exploration tool for
-the relationship between formflows, pages, forms
-conditions, command rules and images using a directed
-graph.
-
-Search strings are specified as regex
-(see http://regex101.com for details).
-
-For example to find:
-
- - anything containing 'truck'
-   > truck
-
- - only templates containing 'truck'
-   > (?=.*type: template)(?=.*truck)
-
- - anything with one or more parents
-   > ^(?!.*counts: 0<)
-
-You are only limited by your imagination (and regex skills)
-
-
-Special commands
-----------------
-You vary the degree of expansion when looking at a specific
-object. Entering '$$max_level=n' will stop expanding the parent or
-children beyond the specified level. Default value is '1', setting to '0'
-will expand all available levels.
-
-To ignore particular types of entities when searching and expanding the graph
-use the '$$ignore=foo, bar' to ignore types 'foo' and 'bar'. Just provide an
-empty list to clear out the ignore list.
-
-To include edges in matches, use the $$edges=True|False command. Default is
-False to not search for matches in the edges atttached to a node.
-
-""")
-
 from . glow_config import settings
 from . glow_templates import template_lookup
 from . glow_utils import (
@@ -149,7 +104,6 @@ class GlowObject(object):
 
 
 class XMLParser(object):
-    # pylint: disable=too-few-public-methods
     """Glow Template XML parser
     """
 
@@ -185,10 +139,9 @@ class XMLParser(object):
             if "columns" in n_dict:
                 my_xml = XMLParser(n_dict["columns"])
                 search_list = n_dict.get("search_list")
-                entity = n_dict.get("entity")
                 for my_node in my_xml.tree.iter():
                     if self.remove_xmlns(my_node.tag) == "FieldName":
-                        result_set.add((entity, search_list, my_node.text))
+                        result_set.add((search_list, my_node.text))
         return result_set
 
     def _data(self, node, tag):
@@ -241,7 +194,7 @@ class XMLParser(object):
         then return our normal Placeholder dictionary
         """
         g_dict = {}
-        if len(node):
+        if list(node):
             g_dict = self._ph_dict(node[-1])
         return g_dict
 
@@ -330,7 +283,10 @@ def create_graph():
     for attrs in (glow_file_object(x) for x in ["entity", "metadata", "index"]):
         abs_path = os.path.abspath(attrs["path"])
         label_text = "{0:25}".format("Loading {} list".format(attrs["type"]))
-        with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as progress_bar:
+        with click.progressbar(
+            glob.glob(abs_path),
+            label=label_text,
+            show_eta=False) as progress_bar:
             for file_name in progress_bar:
                 values = load_file(file_name)
                 if not values:
@@ -346,7 +302,10 @@ def create_graph():
     for attrs in glow_file_objects(omit=["entity", "metadata", "index"]):
         abs_path = os.path.abspath(attrs["path"])
         label_text = "{0:25}".format("Analysing {}s".format(attrs["type"]))
-        with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as progress_bar:
+        with click.progressbar(
+            glob.glob(abs_path),
+            label=label_text,
+            show_eta=False) as progress_bar:
             for file_name in progress_bar:
                 values = load_file(file_name)
                 if not values:
@@ -364,19 +323,25 @@ def create_graph():
                     add_template_to_graph(graph, glow_object)
     return graph
 
+def fix_entity_name(entity, file_name):
+    """Correct for missing entity name
+    """
+    field = entity.fields["name"]
+    entity.name = base_name(file_name)
+    entity.values[field] = entity.name
+
 def add_metadata_to_graph(graph, metadata, file_name):
     """Add additional entity metadata and edges to the graph
     """
     if not metadata.name:
-        field = metadata.fields["name"]
-        metadata.name = base_name(file_name)
-        metadata.values[field] = metadata.name
-    m_dict = {
-        "name": metadata.name,
-        "type": "entity",
-        "entity": metadata.name
-    }
-    graph.add_node(metadata.name, m_dict)
+        fix_entity_name(metadata, file_name)
+    graph.add_node(
+        metadata.name,
+        {
+            "name": metadata.name,
+            "type": "entity",
+            "entity": metadata.name
+        })
 
     if metadata.data:
         data = metadata.data
@@ -385,18 +350,21 @@ def add_metadata_to_graph(graph, metadata, file_name):
         if (rdo_fld in data and
                 isinstance(data[rdo_fld], dict) and
                 con_fld in data[rdo_fld]):
-            condition_guid = data[rdo_fld][con_fld]
-            dc_dict = {
-                "type":      "link",
-                "link_type": "entity read only condition",
-                }
-            graph.add_edge(metadata.name, condition_guid.lower(), attr_dict=dc_dict)
+            graph.add_edge(
+                metadata.name,
+                data[rdo_fld][con_fld].lower(),
+                attr_dict={
+                    "type":      "link",
+                    "link_type": "entity read only condition",
+                })
         if "icon" in data:
-            di_dict = {
-                "type":      "link",
-                "link_type": "entity icon",
-                }
-            graph.add_edge(metadata.name, data["icon"].lower(), attr_dict=di_dict)
+            graph.add_edge(
+                metadata.name,
+                data["icon"].lower(),
+                attr_dict={
+                    "type":      "link",
+                    "link_type": "entity icon",
+                })
 
     if metadata.properties:
         topics = {
@@ -406,13 +374,14 @@ def add_metadata_to_graph(graph, metadata, file_name):
             "conditionId":   "condition"
             }
         for name, attrs in metadata.properties.iteritems():
-            pp_dict = {
-                "name":   name,
-                "type":   "property",
-                "entity": metadata.name
-                }
             reference = "{}-{}".format(name, metadata.name)
-            graph.add_node(reference, pp_dict)
+            graph.add_node(
+                reference,
+                {
+                    "name":   name,
+                    "type":   "property",
+                    "entity": metadata.name
+                })
             for prop in attrs.get("collectionAggregate", []):
                 pc_dict = XMLParser.build_dict(prop, topics)
                 pc_dict["name"] = pc_dict.get("name", "").replace(" ", "")
@@ -429,8 +398,8 @@ def add_metadata_to_graph(graph, metadata, file_name):
                     "link_type": "aggregate rule"
                     }
                 graph.add_edge(reference, prop_name, attr_dict=pl_dict)
-                if "condition" in pp_dict:
-                    graph.add_edge(prop_name, pp_dict["condition"].lower(), attr_dict=pl_dict)
+                if "condition" in pc_dict:
+                    graph.add_edge(prop_name, pc_dict["condition"].lower(), attr_dict=pl_dict)
 
 def add_formflow_to_graph(graph, formflow):
     """Add a formflow object and its edges to the graph
@@ -553,6 +522,45 @@ def add_template_to_graph(graph, template):
     adds the relevant link as an edge. Also looks for
     additional references in the dependencies
     """
+    def analyse_images():
+        """Find all the image references and create edges
+        """
+        for image in xml_parser.iterfind("AsyncImage"):
+            if "image" in image:
+                image["type"] = "link"
+                image["link_type"] = "static image"
+                graph.add_edge(template.guid, image["image"].lower(), attr_dict=image)
+
+        for image in xml_parser.iterfind("Grid"):
+            if "image" in image:
+                image["type"] = "link"
+                image["link_type"] = "background image"
+                graph.add_edge(template.guid, image["image"].lower(), attr_dict=image)
+
+    def analyse_tiles():
+        """Find all the tiles and creates edges to the objects they reference
+        """
+        for tile in xml_parser.iterfind("Tile"):
+            tile["type"] = "tile"
+            if not "entity" in tile and template.entity:
+                tile["entity"] = template.entity
+            if "template_name" in tile:
+                # need to correct for old style references before checking 'template'
+                update_template_reference(tile)
+            if "template" in tile:
+                graph.add_edge(template.guid, tile["template"].lower(), attr_dict=tile)
+            if "formflow" in tile:
+                graph.add_edge(template.guid, tile["formflow"].lower(), attr_dict=tile)
+            if "command" in tile:
+                entity = get_command_entity(tile["command"], tile["entity"])
+                command = "{}-{}".format(tile["command"], entity)
+                graph.add_edge(template.guid, command, attr_dict=tile)
+            if "image" in tile:
+                graph.add_edge(template.guid, tile["image"].lower(), attr_dict=tile)
+            if "property" in tile:
+                reference = "{}-{}".format(tile["property"], template.entity)
+                add_property_edge_if_exists(graph, template.guid, reference, tile)
+
     graph.add_node(template.guid, template.map())
     if template.entity:
         graph.add_edge(
@@ -586,7 +594,7 @@ def add_template_to_graph(graph, template):
             "type":      "link",
             "link_type": "column definition"
         }
-        for entity, search_list, prop in xml_parser.column_definitions():
+        for search_list, prop in xml_parser.column_definitions():
             if search_list == "Global":
                 index_name = prop.upper()
                 graph.add_node(index_name)
@@ -595,38 +603,8 @@ def add_template_to_graph(graph, template):
                 reference = "{}-{}".format(prop, template.entity)
                 add_property_edge_if_exists(graph, template.guid, reference, cd_dict)
 
-        for image in xml_parser.iterfind("AsyncImage"):
-            if "image" in image:
-                image["type"] = "link"
-                image["link_type"] = "static image"
-                graph.add_edge(template.guid, image["image"].lower(), attr_dict=image)
-
-        for image in xml_parser.iterfind("Grid"):
-            if "image" in image:
-                image["type"] = "link"
-                image["link_type"] = "background image"
-                graph.add_edge(template.guid, image["image"].lower(), attr_dict=image)
-
-        for tile in xml_parser.iterfind("Tile"):
-            tile["type"] = "tile"
-            if not "entity" in tile and template.entity:
-                tile["entity"] = template.entity
-            if "template_name" in tile:
-                # need to correct for old style references before checking 'template'
-                update_template_reference(tile)
-            if "template" in tile:
-                graph.add_edge(template.guid, tile["template"].lower(), attr_dict=tile)
-            if "formflow" in tile:
-                graph.add_edge(template.guid, tile["formflow"].lower(), attr_dict=tile)
-            if "command" in tile:
-                entity = get_command_entity(tile["command"], tile["entity"])
-                command = "{}-{}".format(tile["command"], entity)
-                graph.add_edge(template.guid, command, attr_dict=tile)
-            if "image" in tile:
-                graph.add_edge(template.guid, tile["image"].lower(), attr_dict=tile)
-            if "property" in tile:
-                reference = "{}-{}".format(tile["property"], template.entity)
-                add_property_edge_if_exists(graph, template.guid, reference, tile)
+        analyse_images()
+        analyse_tiles()
 
     if template.dependencies:
         xml_parser = XMLParser(template.dependencies)
@@ -685,9 +663,7 @@ def add_entity_to_graph(graph, entity, file_name):
         }
 
     if not entity.name:
-        field = entity.fields["name"]
-        entity.name = base_name(file_name)
-        entity.values[field] = entity.name
+        fix_entity_name(entity, file_name)
     graph.add_node(entity.name, entity.map())
     if entity.properties:
         for name, rules in entity.properties.iteritems():
@@ -716,8 +692,7 @@ def add_entity_to_graph(graph, entity, file_name):
 
                 if "conditions" in e_dict:
                     for condition in e_dict["conditions"]:
-                        if condition:
-                            graph.add_edge(reference, condition.lower(), attr_dict=e_dict)
+                        graph.add_edge(reference, condition.lower(), attr_dict=e_dict)
 
 def add_to_command_lookup(command, entity):
     """Add discovered command to lookup
@@ -835,6 +810,8 @@ def get_node_data(graph, node):
     return node_data
 
 def special_command(query):
+    # pylint: disable=global-statement
+
     """Provide for special commands to change settings
 
     -> '$$max_level=n' to set graph expansion depth
@@ -854,8 +831,7 @@ def special_command(query):
             print()
             print("-> MAX_LEVEL updated to {}".format(level))
             print()
-        finally:
-            return True
+        return True
     elif query.startswith("$$ignore="):
         global IGNORE_TYPES
         IGNORE_TYPES = query.rsplit("=")[-1].split()
@@ -878,7 +854,7 @@ def main():
     """
     # ensure colors works on Windows, no effect on Linux
     init()
-
+    start_time = time.time()
     graph = create_graph()
     end_time = time.time()
     elapsed_time = round(end_time - start_time)
