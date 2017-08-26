@@ -277,6 +277,26 @@ def create_graph():
     to the graph and references are added
     as edges from caller to callee
     """
+    def process_glow_object():
+        """Handle the type of object that we are parsing
+        """
+        if glow_object.type == "entity":
+            add_entity_to_graph(graph, glow_object, file_name)
+        elif glow_object.type == "index":
+            add_index_to_graph(graph, glow_object, file_name)
+        elif glow_object.type == "metadata":
+            add_metadata_to_graph(graph, glow_object, file_name)
+        elif glow_object.type == "condition":
+            add_condition_to_graph(graph, glow_object, file_name)
+        elif glow_object.type == "formflow":
+            add_formflow_to_graph(graph, glow_object)
+        elif glow_object.type == "image":
+            graph.add_node(glow_object.guid, glow_object.map())
+        elif glow_object.type == "module":
+            add_module_to_graph(graph, glow_object)
+        elif glow_object.type == "template":
+            add_template_to_graph(graph, glow_object)
+
     graph = nx.MultiDiGraph(name="Glow")
 
     # add entity related stuff first so the command dict is available
@@ -292,12 +312,7 @@ def create_graph():
                 if not values:
                     continue
                 glow_object = GlowObject(attrs, values)
-                if glow_object.type == "entity":
-                    add_entity_to_graph(graph, glow_object, file_name)
-                elif glow_object.type == "index":
-                    add_index_to_graph(graph, glow_object, file_name)
-                elif glow_object.type == "metadata":
-                    add_metadata_to_graph(graph, glow_object, file_name)
+                process_glow_object()
 
     for attrs in glow_file_objects(omit=["entity", "metadata", "index"]):
         abs_path = os.path.abspath(attrs["path"])
@@ -311,16 +326,8 @@ def create_graph():
                 if not values:
                     continue
                 glow_object = GlowObject(attrs, values)
-                if glow_object.type == "condition":
-                    add_condition_to_graph(graph, glow_object, file_name)
-                elif glow_object.type == "formflow":
-                    add_formflow_to_graph(graph, glow_object)
-                elif glow_object.type == "image":
-                    graph.add_node(glow_object.guid, glow_object.map())
-                elif glow_object.type == "module":
-                    add_module_to_graph(graph, glow_object)
-                elif glow_object.type == "template":
-                    add_template_to_graph(graph, glow_object)
+                process_glow_object()
+
     return graph
 
 def fix_entity_name(entity, file_name):
@@ -848,12 +855,37 @@ def special_command(query):
         print()
         return True
 
+def print_nodes(nodes):
+    """Print a sorted list of selected ndoes
+    """
+    print()
+    if nodes:
+        nodes.sort(key=lambda (_, data): ("name" in data and data["name"]))
+        for index, (_, node_data) in enumerate(nodes):
+            print("{:>3} {}".format(index, colorized(node_data)))
+
+def print_selected_node(graph, index, nodes):
+    """Display selected node details
+    """
+    node, node_data = nodes[index]
+    print()
+    print("-" * 120)
+    print()
+    pindent(colorized(node_data), 0)
+    print()
+    print("These are the parents (predecessors):")
+    print_parents(graph, node)
+    print()
+    print("These are the children (successors):")
+    print_children(graph, node)
 
 def main():
     """Provide navigation of the selected Glow objects
     """
+
     # ensure colors works on Windows, no effect on Linux
     init()
+
     start_time = time.time()
     graph = create_graph()
     end_time = time.time()
@@ -870,54 +902,32 @@ def main():
 
     missing_nodes(graph)
 
-    focus = None
+    query = None
+    nodes = []
     try:
         while True:
-            if focus and isinstance(focus, basestring):
-                query = focus
-            else:
-                print()
-                query = input("Enter regex for selecting nodes: ")
+            print()
+            question = "Enter regex for selecting nodes"
+            if nodes:
+                question += " or number of current node"
+            query = input("{}: ".format(question))
             if special_command(query):
-                focus = None
                 continue
-            if invalid_regex(query):
+            elif nodes and query.isdigit() and int(query) in range(len(nodes)):
+                print_selected_node(graph, int(query), nodes)
+            elif invalid_regex(query):
                 print()
                 print("--> '{}' is an invalid regex!".format(query))
-                focus = None
                 continue
-
-            nodes = select_nodes(graph, query)
-            print()
-            if not nodes:
-                focus = None
             else:
-                nodes.sort(key=lambda (node, data): ("name" in data and data["name"]))
-                for index, (node, node_data) in enumerate(nodes):
-                    print("{:>3} {}".format(index, colorized(node_data)))
-
-                while True:
-                    print()
-                    focus = input("Enter number to navigate or another regex to search again: ")
-                    try:
-                        focus = int(focus)
-                    except ValueError:
-                        break
-                    if focus in range(len(nodes)):
-                        node, node_data = nodes[int(focus)]
-                        print()
-                        print("-" * 120)
-                        print()
-                        pindent(colorized(node_data), 0)
-                        print()
-                        print("These are the parents (predecessors):")
-                        print_parents(graph, node)
-                        print()
-                        print("These are the children (successors):")
-                        print_children(graph, node)
+                nodes = select_nodes(graph, query)
+                print_nodes(nodes)
 
     except KeyboardInterrupt:
         pass
+    except Exception as err_msg:    # pylint: disable=broad-except
+        print()
+        print("-> Error occurred: {}".format(err_msg))
     finally:
         print()
         print()
