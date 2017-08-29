@@ -1,5 +1,15 @@
 # Configuration for the Glow Navigator
 ---
+### Index ###
+caption:
+  type:  caption
+  color: blue
+  display:
+    - name
+    - type
+    - property
+    - entity
+    - counts
 
 ### Condition ###
 condition:

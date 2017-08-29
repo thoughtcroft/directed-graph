@@ -121,13 +121,15 @@ class XMLParser(object):
                 yield self._data(node, tag)
 
     def properties_by_name(self, name):
-        """Return a set of properties from all elements
+        """Return a dict of property dicts from all elements
         """
-        result_set = set()
+        result_set = {}
         for node in self.tree.iter():
             n_dict = self._ph_dict(node)
             if name in n_dict:
-                result_set.add(n_dict[name])
+                field = n_dict[name]
+                n_dict.update(result_set.get(field, {}))
+                result_set[field] = n_dict
         return result_set
 
     def column_definitions(self):
@@ -169,6 +171,7 @@ class XMLParser(object):
         topics = {
             "BackgroundImagePk": "image",
             "BindingPath":       "property",
+            "CaptionOverride":   "caption",
             "ColumnDefinitions": "columns",
             "CommandRule":       "command",
             "Description":       "description",
@@ -569,6 +572,7 @@ def add_template_to_graph(graph, template):
                 add_property_edge_if_exists(graph, template.guid, reference, tile)
 
     graph.add_node(template.guid, template.map())
+
     if template.entity:
         graph.add_edge(
             template.entity, template.guid,
@@ -579,23 +583,41 @@ def add_template_to_graph(graph, template):
 
     if template.data:
         xml_parser = XMLParser(template.data)
+        analyse_images()
+        analyse_tiles()
 
-        for component in xml_parser.properties_by_name("component"):
-            graph.add_edge(
-                template.guid, component.lower(),
-                attr_dict={
-                    "type":      "link",
-                    "link_type": "component template"
-                })
+        for component, comp_dict in xml_parser.properties_by_name("component").iteritems():
+            comp_dict.update({
+                "type":      "link",
+                "link_type": "component template"
+            })
+            graph.add_edge(template.guid, component.lower(), attr_dict=comp_dict)
 
-        for prop in xml_parser.properties_by_name("property"):
+        for prop, prop_dict in xml_parser.properties_by_name("property").iteritems():
             reference = "{}-{}".format(prop, template.entity)
-            add_property_edge_if_exists(
-                graph, template.guid, reference,
-                {
-                    "type":      "link",
-                    "link_type": "bound property"
-                })
+            prop_dict.update({
+                "type":      "link",
+                "link_type": "bound property"
+            })
+            add_property_edge_if_exists(graph, template.guid, reference, prop_dict)
+
+        cap_link = {
+            "type":      "link",
+            "link_type": "caption override"
+        }
+        for caption, cap_dict in xml_parser.properties_by_name("caption").iteritems():
+            cap_dict.update({
+                "name": caption,
+                "type": "caption"
+            })
+            prop = cap_dict.get("property")
+            cap_ref = "{}-{}".format(caption, prop)
+            graph.add_node(cap_ref, cap_dict)
+            graph.add_edge(template.guid, cap_ref, attr_dict=cap_link)
+            if prop:
+                prop_ref = "{}-{}".format(prop, template.entity)
+                add_property_edge_if_exists(graph, template.guid, prop_ref, cap_link)
+                add_property_edge_if_exists(graph, cap_ref, prop_ref, cap_link)
 
         cd_dict = {
             "type":      "link",
@@ -609,9 +631,6 @@ def add_template_to_graph(graph, template):
             else:
                 reference = "{}-{}".format(prop, template.entity)
                 add_property_edge_if_exists(graph, template.guid, reference, cd_dict)
-
-        analyse_images()
-        analyse_tiles()
 
     if template.dependencies:
         xml_parser = XMLParser(template.dependencies)
