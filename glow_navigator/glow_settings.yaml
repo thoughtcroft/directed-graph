@@ -201,6 +201,7 @@ template:
     - name
     - type
     - form_type
+    - form_factor
     - entity
     - counts
   fields:

@@ -124,8 +124,7 @@ class XMLParser(object):
         """Return a dict of property dicts from all elements
         """
         result_set = {}
-        for node in self.tree.iter():
-            n_dict = self._ph_dict(node)
+        for n_dict in self.iterfind("PlaceholdersContainer"):
             if name in n_dict:
                 field = n_dict[name]
                 n_dict.update(result_set.get(field, {}))
@@ -136,11 +135,10 @@ class XMLParser(object):
         """Return properties referenced in column definitions
         """
         result_set = set()
-        for node in self.tree.iter():
-            n_dict = self._ph_dict(node)
+        for n_dict in self.iterfind("PlaceholdersContainer"):
             if "columns" in n_dict:
-                my_xml = XMLParser(n_dict["columns"])
                 search_list = n_dict.get("search_list")
+                my_xml = XMLParser(n_dict["columns"])
                 for my_node in my_xml.tree.iter():
                     if self.remove_xmlns(my_node.tag) == "FieldName":
                         result_set.add((search_list, my_node.text))
@@ -149,7 +147,7 @@ class XMLParser(object):
     def _data(self, node, tag):
         """Generate the object according to tag
         """
-        if tag == "AsyncImage" or tag == "Tile":
+        if tag in ("AsyncImage", "PlaceholdersContainer", "Tile"):
             return self._ph_dict(node)
         if tag == "ConditionalIfActivity":
             return self._con_dict(node)
