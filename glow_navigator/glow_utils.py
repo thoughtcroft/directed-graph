@@ -23,7 +23,7 @@ from . glow_config import settings
 
 ## file related
 
-def load_file(file_name):
+def load_yaml_file(file_name):
     """Return YAML from required file
     """
     try:

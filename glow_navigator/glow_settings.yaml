@@ -214,6 +214,21 @@ template:
     data:         VZ_FormData
     dependencies: VZ_Dependencies
 
+### Test - cucumber business tests ###
+test:
+  type:  test
+  color: yellow
+  path:  DotNet/BusinessTests/Features/Files/*.feature
+  display:
+    - type
+    - name
+    - counts
+  matchers:
+    template:
+      - (And|Given|Then|When) I am on the (?P<template>.+) form
+    formflow:
+      - (And|Given|Then|When) I started activity (?P<formflow>.+)
+
 ### Tile - clickable on templates ###
 tile:
   type:  tile

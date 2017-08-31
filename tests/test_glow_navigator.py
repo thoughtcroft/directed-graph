@@ -12,6 +12,7 @@ from glow_navigator.glow_utils import load_yaml_file
 from glow_navigator.glow_navigator import (
     GlowObject,
     settings,
+    BusinessTestParser,
     XMLParser)
 
 
@@ -59,7 +60,6 @@ class YAMLTestCase(YAMLBase):
         """
         value = getattr(self.formflow, first)
         self.assertEqual(value, second)
-
 
     @data({"name":      "My Test Formflow",
            "entity":    "My Test Entity",
@@ -109,6 +109,15 @@ class NonYAMLTestCase(unittest.TestCase):
         target = list(parser.iterfind("ConditionalIfActivity"))
         self.assertEqual(target, result)
 
+    @data(("template", ["Foo", "Baz"]),
+          ("formflow", ["Bar"]))
+    @unpack
+    def test_business_test_parser(self, match, result):
+        """Test that we can find forms etc in a Business Test
+        """
+        matchers = settings["test"]["matchers"]
+        test = BusinessTestParser("tests/test_data/business_test.feature", matchers)
+        self.assertEqual(test.matches(match), set(result))
 
 if __name__ == "__main__":
     unittest.main()

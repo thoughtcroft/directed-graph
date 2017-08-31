@@ -39,12 +39,14 @@ from . glow_utils import (
     glow_file_object,
     glow_file_objects,
     invalid_regex,
-    load_file,
+    load_yaml_file,
     match,
     pindent)
 
 
 COMMAND_LOOKUP = {}
+FORMSTEP_LOOKUP = {}
+FORMFLOW_LOOKUP = {}
 MAX_LEVEL = 1
 IGNORE_TYPES = []
 EDGE_MATCH = False
@@ -102,6 +104,32 @@ class GlowObject(object):
             mapping.pop(attr, None)
         return mapping
 
+
+class BusinessTestParser(object):
+    """Glow Business Test parser for locating object references
+    """
+
+    def __init__(self, file_name, matchers):
+        self.name = base_name(file_name)
+        self.matchers = matchers
+        with open(file_name, "r") as f:
+            self.content = f.read()
+
+    def matches(self, matcher):
+        """Return unique hits on matcher
+        """
+        results = set()
+        if matcher in self.matchers:
+            for regex in self.matchers[matcher]:
+                pattern = r"{}".format(regex)
+                for m in re.finditer(pattern, self.content):
+                    results.add(m.group(matcher).rstrip())
+        return results
+
+    def map(self):
+        """Return attributes for adding to graph
+        """
+        return {"name": self.name, "type": "test"}
 
 class XMLParser(object):
     """Glow Template XML parser
@@ -309,13 +337,15 @@ def create_graph():
             label=label_text,
             show_eta=False) as progress_bar:
             for file_name in progress_bar:
-                values = load_file(file_name)
+                values = load_yaml_file(file_name)
                 if not values:
                     continue
                 glow_object = GlowObject(attrs, values)
                 process_glow_object()
 
-    for attrs in glow_file_objects(omit=["entity", "metadata", "index"]):
+    print()
+
+    for attrs in glow_file_objects(omit=["entity", "metadata", "index", "test"]):
         abs_path = os.path.abspath(attrs["path"])
         label_text = "{0:25}".format("Analysing {}s".format(attrs["type"]))
         with click.progressbar(
@@ -323,12 +353,41 @@ def create_graph():
             label=label_text,
             show_eta=False) as progress_bar:
             for file_name in progress_bar:
-                values = load_file(file_name)
+                values = load_yaml_file(file_name)
                 if not values:
                     continue
                 glow_object = GlowObject(attrs, values)
                 process_glow_object()
 
+    # finally add test which are not yaml and need their own parsing strategy
+    attrs = settings["test"]
+    abs_path = os.path.abspath(attrs["path"])
+    label_text = "{0:25}".format("Analysing {}s".format(attrs["type"]))
+    with click.progressbar(
+        glob.glob(abs_path),
+        label=label_text,
+        show_eta=False) as progress_bar:
+        for file_name in progress_bar:
+            test = BusinessTestParser(file_name, attrs["matchers"])
+            graph.add_node(test.name, test.map())
+            for template in test.matches("template"):
+                graph.add_edge(
+                    test.name,
+                    FORMSTEP_LOOKUP.get(template, template),
+                    attr_dict={
+                        "type":      "link",
+                        "link_type": "business test",
+                        "name": template
+                    })
+            for formflow in test.matches("formflow"):
+                graph.add_edge(
+                    test.name,
+                    FORMFLOW_LOOKUP.get(formflow, formflow),
+                    attr_dict={
+                        "type":      "link",
+                        "link_type": "business test",
+                        "name": formflow
+                    })
     return graph
 
 def fix_entity_name(entity, file_name):
@@ -417,6 +476,7 @@ def add_formflow_to_graph(graph, formflow):
     as well as any referenced conditions
     """
     graph.add_node(formflow.guid, formflow.map())
+    FORMFLOW_LOOKUP[formflow.name] = formflow.guid
 
     if formflow.entity:
         f_dict = {
@@ -459,6 +519,7 @@ def add_task_edge_to_graph(graph, formflow, task):
     """
     if task.task == "FRM" and task.template:
         graph.add_edge(formflow.guid, task.template.lower(), attr_dict=task.map())
+        FORMSTEP_LOOKUP[task.name] = task.template.lower()
     elif task.task == "JMP" and task.formflow:
         graph.add_edge(formflow.guid, task.formflow.lower(), attr_dict=task.map())
     elif task.task == "RUN" and task.command:
