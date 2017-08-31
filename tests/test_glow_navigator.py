@@ -8,17 +8,9 @@
 import unittest
 from ddt import ddt, data, unpack
 
+from glow_navigator.glow_utils import load_yaml_file
 from glow_navigator.glow_navigator import (
-    base_name,
-    coloring,
-    full_guid,
     GlowObject,
-    invalid_regex,
-    load_file,
-    match,
-    raw_guid,
-    remove_xmlns,
-    serialize,
     settings,
     XMLParser)
 
@@ -27,9 +19,9 @@ class YAMLBase(unittest.TestCase):
     """Set up and tear down for the YAML files
     """
     def setUp(self):
-        self.formflow_data = load_file("test_data/test_formflow.yaml")
+        self.formflow_data = load_yaml_file("tests/test_data/test_formflow.yaml")
         self.formflow = GlowObject(settings["formflow"], self.formflow_data)
-        self.template_data = load_file("test_data/test_template.yaml")
+        self.template_data = load_yaml_file("tests/test_data/test_template.yaml")
         self.template = GlowObject(settings["template"], self.template_data)
 
     def tearDown(self):
@@ -82,27 +74,13 @@ class YAMLTestCase(YAMLBase):
 class NonYAMLTestCase(unittest.TestCase):
     """Unit tests for code not dependent on YAML
     """
-    @data(("484a99c5-6e16-468a-924b-e177947f390e", "484a99c56e16468a924be177947f390e"))
-    @unpack
-    def test_raw_guid(self, first, second):
-        """Converts string guid to plain form without hyphens
-        """
-        self.assertEqual(raw_guid(first), second)
-
-    @data(("484a99c56e16468a924be177947f390e", "484a99c5-6e16-468a-924b-e177947f390e"))
-    @unpack
-    def test_full_guid(self, first, second):
-        """Converts plain guid to hyphenated string form
-        """
-        self.assertEqual(full_guid(first), second)
-
     @data(("{http://schemas.microsoft.com/winfx/}UserControl", "UserControl"),
           ("no name space here", "no name space here"))
     @unpack
     def test_namespace_remover(self, first, second):
         """Extracts the xml namespace from a string
         """
-        self.assertEqual(remove_xmlns(first), second)
+        self.assertEqual(XMLParser.remove_xmlns(first), second)
 
     @data([{"name":          "Order Manager",
             "description":   "Order Manager",
@@ -111,82 +89,26 @@ class NonYAMLTestCase(unittest.TestCase):
     def test_xml_tile(self, result):
         """Test that parsing a Template xml object works
         """
-        with open("test_data/test_tile.xml") as xml_file:
+        with open("tests/test_data/test_tile.xml") as xml_file:
             xml_data = xml_file.read()
         parser = XMLParser(xml_data)
         target = list(parser.iterfind("Tile"))
         self.assertEqual(target, result)
 
     @data([{"guid":           "foo-bar-baz",
-            "type":           "condition",
-            "condition_type": "task",
+            "type":           "link",
+            "link_type":      "conditional task",
             "name":           "Check Status",
             "condition":      "my awesome condition"}])
     def test_xml_condition(self, result):
         """Test that parsing a Formflow xml object works
         """
-        with open("test_data/test_condition.xml") as xml_file:
+        with open("tests/test_data/test_condition.xml") as xml_file:
             xml_data = xml_file.read()
         parser = XMLParser(xml_data)
         target = list(parser.iterfind("ConditionalIfActivity"))
         self.assertEqual(target, result)
 
-    @data(({"type": "task", "task": "JMP",
-            "active": True, "name": "Foo",
-            "formflow": "bar"},
-           "name: Foo, type: task, task: JMP",
-           "task: JMP, type: task, name: Foo"))
-    @unpack
-    def test_display_properties(self, first, second, third):
-        """Node dictionary displays subset
-        """
-        result = serialize(first, display=True)
-        self.assertEqual(result, second)
-        self.assertNotEqual(result, third)
-
-    @data(({"type": "formflow"}, "green"),
-          ({"foo": "bar"}, "white"),
-          ({"foo": "bar", "type": "task"}, "grey"))
-    @unpack
-    def test_coloring_lookup(self, first, second):
-        """Color is determined by dict values
-        """
-        self.assertEqual(coloring(first), second)
-
-    @data(({"foo": 123, "bar": "baz", "quz": True},
-           "foo: 123, bar: baz, quz: True"))
-    @unpack
-    def test_dict_serialization(self, first, second):
-        """Dictionary is serialized correctly
-        """
-        self.assertEqual(serialize(first), second)
-
-    @data(("foo: 123", True),
-          ("bar: b", True),
-          ("foo: bar", False),
-          ("a.: .a", True))
-    @unpack
-    def test_match_against_dict(self, first, second):
-        """Matches correctly against a dictionary"""
-        my_dict = {"foo": 123, "bar": "baz", "quz": True}
-        self.assertEqual(bool(match(first, my_dict)), second)
-
-    @data((".*", False), ("bar", False), ("(?=.*test)", False),
-          ("*", True), ("(bad", True), ("[}", True), ("", True))
-    @unpack
-    def test_regex_validation(self, first, second):
-        """Test that incorrect regex strings are detected
-        """
-        self.assertEqual(invalid_regex(first), second)
-
-    @data(("foo/bar/baz.exe", "baz"),
-          ("foo", "foo"),
-          ("foo/bar.baz.quuz", "bar.baz"))
-    @unpack
-    def test_base_name(self, first, second):
-        """Extracts the file base name from full path
-        """
-        self.assertEqual(base_name(first), second)
 
 if __name__ == "__main__":
     unittest.main()

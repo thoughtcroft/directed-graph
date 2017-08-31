@@ -14,7 +14,7 @@ from glow_navigator.glow_utils import (
     full_guid,
     glow_file_object,
     invalid_regex,
-    load_file,
+    load_yaml_file,
     match,
     raw_guid,
     serialize)
@@ -24,8 +24,8 @@ class YAMLBase(unittest.TestCase):
     """Set up and tear down for the YAML files
     """
     def setUp(self):
-        self.formflow = load_file("test_data/test_formflow.yaml")
-        self.template = load_file("test_data/test_template.yaml")
+        self.formflow = load_yaml_file("tests/test_data/test_formflow.yaml")
+        self.template = load_yaml_file("tests/test_data/test_template.yaml")
 
     def tearDown(self):
         self.formflow = None
@@ -75,8 +75,8 @@ class GlowUtilTestCase(unittest.TestCase):
     @data(({"type": "task", "task": "JMP",
             "active": True, "name": "Foo",
             "formflow": "bar"},
-           "name: Foo, type: task, task: JMP",
-           "task: JMP, type: task, name: Foo"))
+            "type: task, task: JMP, name: Foo",
+            "task: JMP, type: task, name: Foo"))
     @unpack
     def test_display_properties(self, first, second, third):
         """Node dictionary displays subset
@@ -130,9 +130,9 @@ class GlowUtilTestCase(unittest.TestCase):
         self.assertEqual(base_name(first), second)
 
     @data(("tile", {"type": "tile",
-                    "color": "cyan",
+                    "color": "blue",
                     "display":[
-                        "name", "type", "description",
+                        "type", "name", "description",
                         "entity", "counts"
                         ]}))
     @unpack
