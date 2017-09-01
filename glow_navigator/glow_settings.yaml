@@ -225,7 +225,7 @@ test:
     - counts
   matchers:
     template:
-      - (And|Given|Then|When) I am on the (?P<template>.+) form
+      - (And|Given|Then|When) I am on the (?!eDocs for This )(?P<template>.+) form
     formflow:
       - (And|Given|Then|When) I started activity (?P<formflow>.+)
 

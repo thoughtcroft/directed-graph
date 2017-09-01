@@ -373,7 +373,7 @@ def create_graph():
             for template in test.matches("template"):
                 graph.add_edge(
                     test.name,
-                    FORMSTEP_LOOKUP.get(template, template),
+                    FORMSTEP_LOOKUP.get(template, template_lookup.get(template, template)),
                     attr_dict={
                         "type":      "link",
                         "link_type": "business test",
