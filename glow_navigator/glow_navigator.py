@@ -369,25 +369,26 @@ def create_graph():
         show_eta=False) as progress_bar:
         for file_name in progress_bar:
             test = BusinessTestParser(file_name, attrs["matchers"])
-            graph.add_node(test.name, test.map())
-            for template in test.matches("template"):
-                graph.add_edge(
-                    test.name,
-                    FORMSTEP_LOOKUP.get(template, template_lookup.get(template, template)),
-                    attr_dict={
-                        "type":      "link",
-                        "link_type": "business test",
-                        "name": template
-                    })
-            for formflow in test.matches("formflow"):
-                graph.add_edge(
-                    test.name,
-                    FORMFLOW_LOOKUP.get(formflow, formflow),
-                    attr_dict={
-                        "type":      "link",
-                        "link_type": "business test",
-                        "name": formflow
-                    })
+            if not test.matches("ignore"):
+                graph.add_node(test.name, test.map())
+                for template in test.matches("template"):
+                    graph.add_edge(
+                        test.name,
+                        FORMSTEP_LOOKUP.get(template, template_lookup.get(template, template)),
+                        attr_dict={
+                            "type":      "link",
+                            "link_type": "business test",
+                            "name": template
+                        })
+                for formflow in test.matches("formflow"):
+                    graph.add_edge(
+                        test.name,
+                        FORMFLOW_LOOKUP.get(formflow, formflow),
+                        attr_dict={
+                            "type":      "link",
+                            "link_type": "business test",
+                            "name": formflow
+                        })
     return graph
 
 def fix_entity_name(entity, file_name):

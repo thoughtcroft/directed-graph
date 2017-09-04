@@ -228,6 +228,8 @@ test:
       - (And|Given|Then|When) I am on the (?!eDocs for This )(?P<template>.+) form
     formflow:
       - (And|Given|Then|When) I started activity (?P<formflow>.+)
+    ignore:
+      - (And|Given|Then|When) I am on the (?P<ignore>Platform Builder) landing page
 
 ### Tile - clickable on templates ###
 tile:
