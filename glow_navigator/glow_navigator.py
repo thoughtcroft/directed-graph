@@ -31,7 +31,7 @@ import networkx as nx
 from colorama import init
 
 from . glow_config import settings
-from . glow_templates import template_lookup
+from . glow_templates import TEMPLATE_LOOKUP
 from . glow_utils import (
     base_name,
     colorized,
@@ -47,6 +47,7 @@ from . glow_utils import (
 COMMAND_LOOKUP = {}
 FORMSTEP_LOOKUP = {}
 FORMFLOW_LOOKUP = {}
+MODULE_LOOKUP = {}
 MAX_LEVEL = 1
 IGNORE_TYPES = []
 EDGE_MATCH = False
@@ -344,7 +345,6 @@ def create_graph():
                 process_glow_object()
 
     print()
-
     for attrs in glow_file_objects(omit=["entity", "metadata", "index", "test"]):
         abs_path = os.path.abspath(attrs["path"])
         label_text = "{0:25}".format("Analysing {}s".format(attrs["type"]))
@@ -371,14 +371,23 @@ def create_graph():
             test = BusinessTestParser(file_name, attrs["matchers"])
             if not test.matches("ignore"):
                 graph.add_node(test.name, test.map())
-                for template in test.matches("template"):
+                for module in test.matches("module"):
                     graph.add_edge(
                         test.name,
-                        FORMSTEP_LOOKUP.get(template, template_lookup.get(template, template)),
+                        MODULE_LOOKUP.get(module, module),
                         attr_dict={
                             "type":      "link",
                             "link_type": "business test",
-                            "name": template
+                            "name":      module
+                        })
+                for template in test.matches("template"):
+                    graph.add_edge(
+                        test.name,
+                        FORMSTEP_LOOKUP.get(template, TEMPLATE_LOOKUP.get(template, template)),
+                        attr_dict={
+                            "type":      "link",
+                            "link_type": "business test",
+                            "name":      template
                         })
                 for formflow in test.matches("formflow"):
                     graph.add_edge(
@@ -387,7 +396,7 @@ def create_graph():
                         attr_dict={
                             "type":      "link",
                             "link_type": "business test",
-                            "name": formflow
+                            "name":      formflow
                         })
     return graph
 
@@ -584,6 +593,7 @@ def add_module_to_graph(graph, module):
             "template":   module.template
         }
         graph.add_edge(module.guid, module.template.lower(), attr_dict=m_dict)
+        MODULE_LOOKUP[module.code] = module.guid
 
 def add_template_to_graph(graph, template):
     """Add a template object and its edges to the graph
@@ -719,7 +729,7 @@ def update_template_reference(attrs):
     if "template" in attrs:
         return
     try:
-        attrs["template"] = template_lookup[attrs["template_name"]]
+        attrs["template"] = TEMPLATE_LOOKUP[attrs["template_name"]]
     except KeyError as err_msg:
         print("\n-> Error: '{}' looking up {}".format(err_msg, attrs))
 
