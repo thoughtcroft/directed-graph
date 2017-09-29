@@ -27,7 +27,7 @@ def load_yaml_file(file_name):
     """Return YAML from required file
     """
     try:
-        return yaml.load(open(file_name, "r"))
+        return yaml.load(open(file_name, "r", encoding='utf8'))
     except yaml.scanner.ScannerError as err_msg:
         print("\n\n-> Error: '{}' in {}".format(err_msg, file_name))
 

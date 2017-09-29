@@ -60,5 +60,5 @@ False to not search for matches in the edges atttached to a node.
 
 settings_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'glow_settings.yaml')
 
-with open(settings_file, "r") as f:
+with open(settings_file, "r", encoding='utf-8') as f:
     settings = yaml.load(f)
