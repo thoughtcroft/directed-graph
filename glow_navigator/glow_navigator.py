@@ -877,20 +877,23 @@ def select_nodes(graph, query):
     """
     nodes = []
     for node in graph:
-        node_data = get_node_data(graph, node)
-        if node_data.get("type") in IGNORE_TYPES:
-            continue
-        elif match(query, node_data):
-            nodes.append((node, node_data))
-            continue
-        if EDGE_MATCH:
-            for edge in graph.edges_iter(node, data=True):
-                _, _, edge_data = edge
-                if edge_data.get("type") in IGNORE_TYPES:
-                    continue
-                elif match(query, edge_data):
-                    nodes.append((node, node_data))
+        try:
+            node_data = get_node_data(graph, node)
+            if node_data.get("type") in IGNORE_TYPES:
+                continue
+            elif match(query, node_data):
+                nodes.append((node, node_data))
+                continue
+            if EDGE_MATCH:
+                for edge in graph.edges_iter(node, data=True):
+                    _, _, edge_data = edge
+                    if edge_data.get("type") in IGNORE_TYPES:
+                        continue
+                    elif match(query, edge_data):
+                        nodes.append((node, node_data))
                     break
+        except Exception as err_msg:
+            print("\n\n-> Error: '{}' matching {} in {}".format(err_msg, query, node))
     return nodes
 
 def get_node_data(graph, node):

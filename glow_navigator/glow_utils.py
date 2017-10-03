@@ -27,7 +27,8 @@ def load_yaml_file(file_name):
     """Return YAML from required file
     """
     try:
-        return yaml.load(open(file_name, "r", encoding='utf8'))
+        with open(file_name, "r") as f:
+            return yaml.safe_load(f.read())
     except yaml.scanner.ScannerError as err_msg:
         print("\n\n-> Error: '{}' in {}".format(err_msg, file_name))
 
@@ -110,9 +111,9 @@ def invalid_regex(expression):
 def match(query, g_dict):
     """Check if the regex query matches dict
     """
-    s_dict = serialize(g_dict)
     pattern = r"{}".format(query)
-    return re.search(pattern, s_dict, flags=re.IGNORECASE)
+    target = serialize(g_dict)
+    return re.search(pattern, target, flags=re.IGNORECASE)
 
 def serialize(g_dict, display=False):
     """Serialize a node or edge properties
@@ -120,14 +121,15 @@ def serialize(g_dict, display=False):
     Used for searching full list or optional
     display=True for printing minimal list
     """
+    mask = u'{}: {}'   # unicode for compatibility
     if (display and "type" in g_dict and
             g_dict["type"] in settings):
         d_dict = settings[g_dict["type"]]
-        g_list = ("{}: {}".format(k, g_dict[k])
+        g_list = (mask.format(k, g_dict[k])
                   for k in d_dict["display"]
                   if k in g_dict)
     else:
-        g_list = ("{}: {}".format(k, v)
+        g_list = (mask.format(k, v)
                   for (k, v) in g_dict.iteritems())
     return ", ".join(g_list)
 
