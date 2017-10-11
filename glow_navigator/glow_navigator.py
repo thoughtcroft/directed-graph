@@ -22,6 +22,8 @@ try:
 except ImportError:
     import pyreadline as readline   # pylint: disable=unused-import
 import sys
+reload(sys)
+sys.setdefaultencoding("latin")
 import time
 import xml.etree.ElementTree as ET
 
@@ -954,11 +956,7 @@ def print_nodes(nodes):
     if nodes:
         nodes.sort(key=lambda (_, data): ("name" in data and data["name"]))
         for index, (_, node_data) in enumerate(nodes):
-            try:
-                print(u"{:>3} {}".format(index, colorized(node_data)))
-            except Exception:
-                import pdb
-                pdb.set_trace()
+            print("{:>3} {}".format(index, colorized(node_data)))
 
 def print_selected_node(graph, index, nodes):
     """Display selected node details

@@ -74,7 +74,7 @@ def glow_file_objects(*args, **kwargs):
 def pindent(text, level):
     """Indent print by specified level
     """
-    print(u"{:>3} {}{}".format(level, "  " * level, text))
+    print("{:>3} {}{}".format(level, "  " * level, text))
 
 def coloring(data_dict):
     """Lookup data properties to determine the best color
@@ -121,7 +121,7 @@ def serialize(g_dict, display=False):
     Used for searching full list or optional
     display=True for printing minimal list
     """
-    mask = u'{}: {}'   # unicode for compatibility
+    mask = '{}: {}'   # unicode for compatibility
     if (display and "type" in g_dict and
             g_dict["type"] in settings):
         d_dict = settings[g_dict["type"]]
@@ -131,7 +131,7 @@ def serialize(g_dict, display=False):
     else:
         g_list = (mask.format(k, v)
                   for (k, v) in g_dict.iteritems())
-    return u", ".join(g_list)
+    return ", ".join(g_list)
 
 if __name__ == "__main__":
     print()
