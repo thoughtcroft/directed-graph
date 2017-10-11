@@ -74,7 +74,7 @@ def glow_file_objects(*args, **kwargs):
 def pindent(text, level):
     """Indent print by specified level
     """
-    print("{:>3} {}{}".format(level, "  " * level, text))
+    print(u"{:>3} {}{}".format(level, "  " * level, text))
 
 def coloring(data_dict):
     """Lookup data properties to determine the best color

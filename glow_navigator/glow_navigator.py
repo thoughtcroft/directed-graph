@@ -954,7 +954,7 @@ def print_nodes(nodes):
     if nodes:
         nodes.sort(key=lambda (_, data): ("name" in data and data["name"]))
         for index, (_, node_data) in enumerate(nodes):
-            print("{:>3} {}".format(index, colorized(node_data)))
+            print(u"{:>3} {}".format(index, colorized(node_data)))
 
 def print_selected_node(graph, index, nodes):
     """Display selected node details
