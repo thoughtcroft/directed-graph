@@ -954,7 +954,11 @@ def print_nodes(nodes):
     if nodes:
         nodes.sort(key=lambda (_, data): ("name" in data and data["name"]))
         for index, (_, node_data) in enumerate(nodes):
-            print(u"{:>3} {}".format(index, colorized(node_data)))
+            try:
+                print(u"{:>3} {}".format(index, colorized(node_data)))
+            except Exception:
+                import pdb
+                pdb.set_trace()
 
 def print_selected_node(graph, index, nodes):
     """Display selected node details

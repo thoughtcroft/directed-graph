@@ -131,7 +131,7 @@ def serialize(g_dict, display=False):
     else:
         g_list = (mask.format(k, v)
                   for (k, v) in g_dict.iteritems())
-    return ", ".join(g_list)
+    return u", ".join(g_list)
 
 if __name__ == "__main__":
     print()
