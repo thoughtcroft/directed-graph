@@ -23,7 +23,7 @@ except ImportError:
     import pyreadline as readline   # pylint: disable=unused-import
 import sys
 reload(sys)
-sys.setdefaultencoding("latin")
+sys.setdefaultencoding("utf-8")
 import time
 import xml.etree.ElementTree as ET
 
