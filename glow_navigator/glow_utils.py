@@ -85,11 +85,11 @@ def coloring(data_dict):
         color = "white"
     return color
 
-def colorized(data_dict, color=None):
+def colorized(data_dict, color=None, display=True):
     """Format and color node or edge data"""
     if color is None:
         color = coloring(data_dict)
-    data = serialize(data_dict, display=True)
+    data = serialize(data_dict, display)
     return colored(data, color)
 
 

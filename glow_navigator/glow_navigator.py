@@ -53,6 +53,7 @@ MODULE_LOOKUP = {}
 MAX_LEVEL = 1
 IGNORE_TYPES = []
 EDGE_MATCH = False
+MINIMAL_DISPLAY = True
 
 
 class GlowObject(object):
@@ -198,22 +199,23 @@ class XMLParser(object):
         {topic: amount} if value has been set
         """
         topics = {
-            "BackgroundImagePk": "image",
-            "BindingPath":       "property",
-            "CaptionOverride":   "caption",
-            "ColumnDefinitions": "columns",
-            "CommandRule":       "command",
-            "Description":       "description",
-            "EntityType":        "entity",
-            "FilterType":        "search_list",
-            "Image":             "image",
-            "Link":              "property",
-            "Page":              "template_name",
-            "PagePK":            "template",
-            "TemplateID":        "component",
-            "Text":              "name",
-            "Url":               "url",
-            "Workflow":          "formflow"
+            "BackgroundImagePk":    "image",
+            "BindingPath":          "property",
+            "CaptionOverride":      "caption",
+            "ColumnDefinitions":    "columns",
+            "CommandRule":          "command",
+            "Description":          "description",
+            "EntityType":           "entity",
+            "FilterType":           "search_list",
+            "Image":                "image",
+            "Link":                 "property",
+            "Page":                 "template_name",
+            "PagePK":               "template",
+            "SingleResultFormFlow": "formflow",
+            "TemplateID":           "component",
+            "Text":                 "name",
+            "Url":                  "url",
+            "Workflow":             "formflow"
             }
 
         ph_dict = self._convert_dict(node, "Placeholder")
@@ -658,6 +660,14 @@ def add_template_to_graph(graph, template):
         analyse_images()
         analyse_tiles()
 
+        for formflow, ff_dict in xml_parser.properties_by_name("formflow").iteritems():
+            ff_dict.update({
+                "type":      "link",
+                "link_type": "formflow reference"
+            })
+            graph.add_edge(template.guid, formflow, attr_dict=ff_dict)
+
+
         for component, comp_dict in xml_parser.properties_by_name("component").iteritems():
             comp_dict.update({
                 "type":      "link",
@@ -918,6 +928,7 @@ def special_command(query):
     -> '$$max_level=n' to set graph expansion depth
     -> '$$ignore=foo bar' to ignore foo and bar types
     -> '$$edges=True' to include edges in the match
+    -> '$$minimal=False' to expand attributes printed
     """
     if query.startswith("$$max_level="):
         global MAX_LEVEL
@@ -948,6 +959,14 @@ def special_command(query):
         print("-> EDGE_MATCH updated to {}".format(EDGE_MATCH))
         print()
         return True
+    elif query.startswith("$$minimal="):
+        global MINIMAL_DISPLAY
+        value = query.rsplit("=")[-1].lower()
+        MINIMAL_DISPLAY = {"true": True, "false": False}.get(value, True)
+        print()
+        print("-> MINIMAL_DISPLAY updated to {}".format(MINIMAL_DISPLAY))
+        print()
+        return True
 
 def print_nodes(nodes):
     """Print a sorted list of selected ndoes
@@ -965,7 +984,7 @@ def print_selected_node(graph, index, nodes):
     print()
     print("-" * 120)
     print()
-    pindent(colorized(node_data), 0)
+    pindent(colorized(node_data, display=MINIMAL_DISPLAY), 0)
     print()
     print("These are the parents (predecessors):")
     print_parents(graph, node)

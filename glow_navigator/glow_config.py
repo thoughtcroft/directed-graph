@@ -56,6 +56,9 @@ empty list to clear out the ignore list.
 To include edges in matches, use the $$edges=True|False command. Default is
 False to not search for matches in the edges atttached to a node.
 
+To expand the level of detail in node printing use $$minimal=True|False. Default
+is True to keep the level of detail reasonable.
+
 """)
 
 settings_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'glow_settings.yaml')
