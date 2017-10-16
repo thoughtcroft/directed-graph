@@ -663,13 +663,13 @@ def add_template_to_graph(graph, template):
 
     graph.add_node(template.guid, template.map())
 
-    if template.entity:
-        graph.add_edge(
-            template.entity, template.guid,
-            attr_dict={
-                "type":      "link",
-                "link_type": "template entity"
-                })
+    # if template.entity:
+        # graph.add_edge(
+            # template.entity, template.guid,
+            # attr_dict={
+                # "type":      "link",
+                # "link_type": "template entity"
+                # })
 
     if template.data:
         xml_parser = XMLParser(template.data)
@@ -758,6 +758,7 @@ def update_template_reference(attrs):
         return
     try:
         attrs["template"] = TEMPLATE_LOOKUP[attrs["template_name"]]
+        print("\n-> Warn:  '{}' triggered template lookup '{}'".format(attrs["name"], attrs["template"])
     except KeyError as err_msg:
         print("\n-> Error: '{}' looking up {}".format(err_msg, attrs))
 
