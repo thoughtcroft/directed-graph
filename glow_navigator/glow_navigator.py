@@ -940,7 +940,7 @@ def get_node_data(graph, node):
         node_data["counts"] = "{}<{}".format(parents, children)
     return node_data
 
-def special_command(query):
+def special_command(query, graph):
     # pylint: disable=global-statement
 
     """Provide for special commands to change settings
@@ -1031,7 +1031,7 @@ def main():
             if nodes:
                 question += " or number of current node"
             query = input("{}: ".format(question))
-            if special_command(query):
+            if special_command(query, graph):
                 continue
             elif nodes and query.isdigit() and int(query) in range(len(nodes)):
                 print_selected_node(graph, int(query), nodes)
