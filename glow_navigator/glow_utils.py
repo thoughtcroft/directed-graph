@@ -12,6 +12,7 @@ from __future__ import print_function
 
 # standard libraries
 import os.path
+import pickle
 import re
 import uuid
 
@@ -22,6 +23,18 @@ import yaml
 from . glow_config import settings
 
 ## file related
+
+def load_object_from_file(file_name):
+    """Return an unmarshaled object
+    """
+    with open(file_name, "rb") as f:
+        return pickle.load(f)
+
+def save_object_to_file(obj, file_name):
+    """Marshal object and save to file
+    """
+    with open(file_name, "wb") as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
 def load_yaml_file(file_name):
     """Return YAML from required file

@@ -167,8 +167,10 @@ property:
   display:
     - name
     - type
-    - rule_type
-    - property
+    - calculated_property
+    - defaulting_rule
+    - validation_rule
+    - lookup_rule
     - entity
     - counts
 

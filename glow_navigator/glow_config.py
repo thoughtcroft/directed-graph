@@ -59,6 +59,9 @@ False to not search for matches in the edges atttached to a node.
 To expand the level of detail in node printing use $$minimal=True|False. Default
 is True to keep the level of detail reasonable.
 
+To regenerate the graph afresh use $$regen. By default, if a cached copy exists
+the graph will be reloaded from the cache. After being regenerated, it will be cached.
+
 """)
 
 settings_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'glow_settings.yaml')

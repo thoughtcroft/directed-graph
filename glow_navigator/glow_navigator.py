@@ -33,7 +33,6 @@ import networkx as nx
 from colorama import init
 
 from . glow_config import settings
-from . glow_templates import TEMPLATE_LOOKUP
 from . glow_utils import (
     base_name,
     colorized,
@@ -42,9 +41,10 @@ from . glow_utils import (
     glow_file_objects,
     invalid_regex,
     load_yaml_file,
+    load_object_from_file,
+    save_object_to_file,
     match,
     pindent)
-
 
 COMMAND_LOOKUP = {}
 FORMSTEP_LOOKUP = {}
@@ -54,6 +54,7 @@ MAX_LEVEL = 1
 IGNORE_TYPES = []
 EDGE_MATCH = False
 MINIMAL_DISPLAY = True
+CACHE_FILE = os.path.abspath("glow_graph.pickle")
 
 
 class GlowObject(object):
@@ -303,6 +304,14 @@ class XMLParser(object):
         """
         return re.sub(r"\{.*\}", "", text)
 
+def print_graph_info(graph):
+    """Output stats about the graph
+    """
+    print(nx.info(graph))
+    if graph.number_of_nodes() == 0:
+        print("Nothing was added to the graph - run again in the Glow source root\n")
+        sys.exit()
+    missing_nodes(graph)
 
 def create_graph():
     """Create directed graph of objects
@@ -331,6 +340,9 @@ def create_graph():
         elif glow_object.type == "template":
             add_template_to_graph(graph, glow_object)
 
+    global TEMPLATE_LOOKUP
+    from . glow_templates import TEMPLATE_LOOKUP
+    start_time = time.time()
     graph = nx.MultiDiGraph(name="Glow")
 
     # add entity related stuff first so the command dict is available
@@ -402,6 +414,10 @@ def create_graph():
                             "link_type": "business test",
                             "name":      formflow
                         })
+    end_time = time.time()
+    elapsed_time = round(end_time - start_time)
+    print("\nGraph completed in {} seconds\n".format(elapsed_time))
+    save_object_to_file(graph, CACHE_FILE)
     return graph
 
 def fix_entity_name(entity, file_name):
@@ -757,17 +773,17 @@ def add_entity_to_graph(graph, entity, file_name):
     """
     topics = {
         "ruleId":       "guid",
-        "ruleType":     "property_type",
-        "methodName":   "rule_type",
+        "ruleType":     "rule_type",
+        "methodName":   "rule_name",
         "conditionIds": "conditions"
         }
 
-    link_types = {
+    rule_types = {
         "CMD": "command",
-        "PRP": "calculated property",
-        "PRO": "defaulting rule",
-        "VAL": "validation rule",
-        "LOO": "lookup rule"
+        "PRP": "calculated_property",
+        "PRO": "defaulting_rule",
+        "VAL": "validation_rule",
+        "LOO": "lookup_rule"
         }
 
     if not entity.name:
@@ -776,31 +792,34 @@ def add_entity_to_graph(graph, entity, file_name):
     if entity.properties:
         for name, rules in entity.properties.iteritems():
             reference = "{}-{}".format(name, entity.name)
+            p_dict = {
+                "name":   name,
+                "entity": entity.name,
+                "type":   "property"
+            }
             for rule in rules:
                 r_dict = XMLParser.build_dict(rule, topics)
                 r_dict["name"] = name
                 r_dict["entity"] = entity.name
-                rule_type = r_dict["property_type"]
-
+                e_dict = {
+                    "name":    "name",
+                    "entity":  entity.name,
+                    "type":    "link"
+                    }
+                rule_type = r_dict["rule_type"]
                 if rule_type == "CMD":
-                    r_dict["type"] = "command"
+                    e_dict["type"] = "command"
                     add_to_command_lookup(name, entity.name)
-                else:
-                    r_dict["type"] = "property"
+                    break
 
-                graph.add_node(reference, r_dict)
-
-                e_dict = copy.deepcopy(r_dict)
-                e_dict["type"] = "link"
-                if rule_type in link_types:
-                    e_dict["link_type"] = link_types[rule_type]
-                else:
-                    e_dict["link_type"] = "unknown->{}".format(rule_type)
+                p_dict[rule_types[rule_type]] = r_dict["rule_name"]
+                e_dict["link_type"] = rule_types[rule_type]
                 graph.add_edge(entity.name, reference, attr_dict=e_dict)
 
                 if "conditions" in e_dict:
                     for condition in e_dict["conditions"]:
                         graph.add_edge(reference, condition.lower(), attr_dict=e_dict)
+            graph.add_node(reference, p_dict)
 
 def add_to_command_lookup(command, entity):
     """Add discovered command to lookup
@@ -831,7 +850,7 @@ def missing_nodes(graph):
     print()
     print("These nodes have no data:")
     for node in graph:
-        if "type" not in graph.node[node]:
+        if "type" not in graph.node[node] and graph.in_degree(node) > 0:
             print()
             print(node)
             for caller in graph.predecessors(node):
@@ -929,43 +948,39 @@ def special_command(query):
     -> '$$ignore=foo bar' to ignore foo and bar types
     -> '$$edges=True' to include edges in the match
     -> '$$minimal=False' to expand attributes printed
+    -> '$$regen' to regenerate the graph
     """
     if query.startswith("$$max_level="):
         global MAX_LEVEL
         try:
             level = int(query.rsplit("=")[-1])
         except ValueError:
-            print()
-            print("-> Error: Invalid value for max level!")
-            print()
+            print("\n-> Error: Invalid value for max level!\n")
         else:
             MAX_LEVEL = level
-            print()
-            print("-> MAX_LEVEL updated to {}".format(level))
-            print()
+            print("\n-> MAX_LEVEL updated to {}\n".format(level))
         return True
     elif query.startswith("$$ignore="):
         global IGNORE_TYPES
         IGNORE_TYPES = query.rsplit("=")[-1].split()
-        print()
-        print("-> IGNORE_TYPES updated to {}".format(IGNORE_TYPES))
-        print()
+        print("\n-> IGNORE_TYPES updated to {}\n".format(IGNORE_TYPES))
         return True
     elif query.startswith("$$edges="):
         global EDGE_MATCH
         value = query.rsplit("=")[-1].lower()
         EDGE_MATCH = {"true": True, "false": False}.get(value, False)
-        print()
-        print("-> EDGE_MATCH updated to {}".format(EDGE_MATCH))
-        print()
+        print("\n-> EDGE_MATCH updated to {}\n".format(EDGE_MATCH))
         return True
     elif query.startswith("$$minimal="):
         global MINIMAL_DISPLAY
         value = query.rsplit("=")[-1].lower()
         MINIMAL_DISPLAY = {"true": True, "false": False}.get(value, True)
+        print("\n-> MINIMAL_DISPLAY updated to {}\n".format(MINIMAL_DISPLAY))
+        return True
+    elif query.startswith("$$regen"):
         print()
-        print("-> MINIMAL_DISPLAY updated to {}".format(MINIMAL_DISPLAY))
-        print()
+        graph = create_graph()
+        print_graph_info(graph)
         return True
 
 def print_nodes(nodes):
@@ -999,21 +1014,12 @@ def main():
     # ensure colors works on Windows, no effect on Linux
     init()
 
-    start_time = time.time()
-    graph = create_graph()
-    end_time = time.time()
-    elapsed_time = round(end_time - start_time)
-    print()
-    print("Graph completed in {} seconds".format(elapsed_time))
-    print()
-    print(nx.info(graph))
-
-    if graph.number_of_nodes() == 0:
-        print("Nothing was added to the graph - run again in the Glow source root")
-        print()
-        sys.exit()
-
-    missing_nodes(graph)
+    if os.path.exists(CACHE_FILE):
+        graph = load_object_from_file(CACHE_FILE)
+        print("Graph loaded from cache: {} \n".format(CACHE_FILE))
+    else:
+        graph = create_graph()
+    print_graph_info(graph)
 
     query = None
     nodes = []
