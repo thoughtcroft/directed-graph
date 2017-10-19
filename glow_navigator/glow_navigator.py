@@ -33,6 +33,7 @@ import networkx as nx
 from colorama import init
 
 from . glow_config import settings
+from . glow_templates import build_template_lookup
 from . glow_utils import (
     base_name,
     colorized,
@@ -55,6 +56,7 @@ IGNORE_TYPES = []
 EDGE_MATCH = False
 MINIMAL_DISPLAY = True
 CACHE_FILE = os.path.abspath("glow_graph.pickle")
+TEMPLATE_LOOKUP = {}
 
 
 class GlowObject(object):
@@ -341,7 +343,7 @@ def create_graph():
             add_template_to_graph(graph, glow_object)
 
     global TEMPLATE_LOOKUP
-    from . glow_templates import TEMPLATE_LOOKUP
+    TEMPLATE_LOOKUP = build_template_lookup()
     start_time = time.time()
     graph = nx.MultiDiGraph(name="Glow")
 
@@ -663,6 +665,7 @@ def add_template_to_graph(graph, template):
 
     graph.add_node(template.guid, template.map())
 
+    ### removed to make unreferenced templates easier to find ###
     # if template.entity:
         # graph.add_edge(
             # template.entity, template.guid,
@@ -758,7 +761,7 @@ def update_template_reference(attrs):
         return
     try:
         attrs["template"] = TEMPLATE_LOOKUP[attrs["template_name"]]
-        print("\n-> Warn:  '{}' triggered template lookup '{}'".format(attrs["name"], attrs["template"])
+        attrs["warning"] = "legacy template reference"
     except KeyError as err_msg:
         print("\n-> Error: '{}' looking up {}".format(err_msg, attrs))
 

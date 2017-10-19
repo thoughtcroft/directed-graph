@@ -18,11 +18,14 @@ import click
 from . glow_config import settings
 from . glow_utils import load_yaml_file
 
-TEMPLATE_LOOKUP = {}
-abs_path = os.path.abspath(settings["template"]["path"])
-label_text = "{0:25}".format("Loading template lookup")
+def build_template_lookup():
+    label_text = "{0:25}".format("Loading template lookup")
+    abs_path = os.path.abspath(settings["template"]["path"])
+    template_lookup = {}
 
-with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as bar:
-    for file_name in bar:
-        values = load_yaml_file(file_name)
-        TEMPLATE_LOOKUP[values["VZ_FormID"]] = values["VZ_PK"]
+    with click.progressbar(glob.glob(abs_path), label=label_text, show_eta=False) as bar:
+        for file_name in bar:
+            values = load_yaml_file(file_name)
+            template_lookup[values["VZ_FormID"]] = values["VZ_PK"]
+
+    return template_lookup

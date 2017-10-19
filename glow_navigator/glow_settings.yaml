@@ -243,6 +243,7 @@ tile:
     - type
     - name
     - description
+    - warning
     - entity
     - counts
 ...
