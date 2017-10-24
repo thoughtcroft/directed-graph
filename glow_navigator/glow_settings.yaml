@@ -234,7 +234,7 @@ test:
       - (And|Given|Then|When) I am on the (?!eDocs for This )(?P<template>.+) form
     formflow:
       - (And|Given|Then|When) I started activity (?P<formflow>.+)
-      - (And|Given|Then|When) I perform the (?P<formflow>.+) action
+      - (And|Given|Then|When) I perform the (?!Delete|Customize Columns)(?P<formflow>.+) action
     ignore:
       - (And|Given|Then|When) I am on the (?P<ignore>Platform Builder) landing page
 
