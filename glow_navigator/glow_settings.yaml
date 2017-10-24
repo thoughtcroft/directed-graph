@@ -229,7 +229,7 @@ test:
     - counts
   matchers:
     module:
-      - "@(?P<module>[A-Z]{3}) "
+      - "@(?P<module>[A-Z]{3})"
     template:
       - (And|Given|Then|When) I am on the (?!eDocs for This )(?P<template>.+) form
     formflow:
