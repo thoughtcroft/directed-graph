@@ -57,6 +57,7 @@ EDGE_MATCH = False
 MINIMAL_DISPLAY = True
 CACHE_FILE = os.path.abspath("glow_graph.pickle")
 TEMPLATE_LOOKUP = {}
+GLOW_GRAPH = None
 
 
 class GlowObject(object):
@@ -943,9 +944,8 @@ def get_node_data(graph, node):
         node_data["counts"] = "{}<{}".format(parents, children)
     return node_data
 
-def special_command(query, graph):
+def special_command(query):
     # pylint: disable=global-statement
-
     """Provide for special commands to change settings
 
     -> '$$max_level=n' to set graph expansion depth
@@ -982,9 +982,10 @@ def special_command(query, graph):
         print("\n-> MINIMAL_DISPLAY updated to {}\n".format(MINIMAL_DISPLAY))
         return True
     elif query.startswith("$$regen"):
+        global GLOW_GRAPH
         print()
-        graph = create_graph()
-        print_graph_info(graph)
+        GLOW_GRAPH = create_graph()
+        print_graph_info(GLOW_GRAPH)
         return True
 
 def print_nodes(nodes):
@@ -1014,16 +1015,17 @@ def print_selected_node(graph, index, nodes):
 def main():
     """Provide navigation of the selected Glow objects
     """
+    global GLOW_GRAPH
 
     # ensure colors works on Windows, no effect on Linux
     init()
 
     if os.path.exists(CACHE_FILE):
-        graph = load_object_from_file(CACHE_FILE)
+        GLOW_GRAPH = load_object_from_file(CACHE_FILE)
         print("Graph loaded from cache: {} \n".format(CACHE_FILE))
     else:
-        graph = create_graph()
-    print_graph_info(graph)
+        GLOW_GRAPH = create_graph()
+    print_graph_info(GLOW_GRAPH)
 
     query = None
     nodes = []
@@ -1034,17 +1036,20 @@ def main():
             if nodes:
                 question += " or number of current node"
             query = input("{}: ".format(question))
-            if special_command(query, graph):
+            if special_command(query):
                 continue
             elif nodes and query.isdigit() and int(query) in range(len(nodes)):
-                print_selected_node(graph, int(query), nodes)
+                print_selected_node(GLOW_GRAPH, int(query), nodes)
             elif invalid_regex(query):
                 print()
                 print("--> '{}' is an invalid regex!".format(query))
                 continue
             else:
-                nodes = select_nodes(graph, query)
-                print_nodes(nodes)
+                nodes = select_nodes(GLOW_GRAPH, query)
+                if len(nodes) == 1:
+                    print_selected_node(GLOW_GRAPH, 0, nodes)
+                else:
+                    print_nodes(nodes)
 
     except KeyboardInterrupt:
         pass
