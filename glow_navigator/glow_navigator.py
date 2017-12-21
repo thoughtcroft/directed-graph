@@ -348,8 +348,11 @@ def create_graph():
     start_time = time.time()
     graph = nx.MultiDiGraph(name="Glow")
 
+    load_list = ["entity", "metadata", "index", "image"]
+    omit_list = load_list + ["test"]
+
     # add entity related stuff first so the command dict is available
-    for attrs in (glow_file_object(x) for x in ["entity", "metadata", "index"]):
+    for attrs in (glow_file_object(x) for x in load_list):
         abs_path = os.path.abspath(attrs["path"])
         label_text = "{0:25}".format("Loading {} list".format(attrs["type"]))
         with click.progressbar(
@@ -364,7 +367,7 @@ def create_graph():
                 process_glow_object()
 
     print()
-    for attrs in glow_file_objects(omit=["entity", "metadata", "index", "test"]):
+    for attrs in glow_file_objects(omit=omit_list):
         abs_path = os.path.abspath(attrs["path"])
         label_text = "{0:25}".format("Analysing {}s".format(attrs["type"]))
         with click.progressbar(
@@ -665,15 +668,6 @@ def add_template_to_graph(graph, template):
                 add_property_edge_if_exists(graph, template.guid, reference, tile)
 
     graph.add_node(template.guid, template.map())
-
-    ### removed to make unreferenced templates easier to find ###
-    # if template.entity:
-        # graph.add_edge(
-            # template.entity, template.guid,
-            # attr_dict={
-                # "type":      "link",
-                # "link_type": "template entity"
-                # })
 
     if template.data:
         xml_parser = XMLParser(template.data)
