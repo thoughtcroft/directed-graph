@@ -1,0 +1,61 @@
+<form
+  id="3ff63fdd-e066-4aae-879f-b5ee43e3bf8d" xmlns="http://wisetechglobal.com/glow/2017/05/26/form.xsd">
+  <placeholder
+    name="BackgroundImagePk"
+    value="" />
+  <placeholder
+    name="FormLayout"
+    value="Splitview" />
+  <placeholder
+    name="ExpandPaths"
+    value="" />
+  <control
+    code="TIL"
+    id="a01955ac-122f-4050-a20a-3004b3949e85"
+    left="0"
+    top="0"
+    width="4"
+    height="4">
+    <placeholder
+      name="CanBeHidden"
+      value="True" />
+    <placeholder
+      name="Size"
+      value="Large" />
+    <placeholder
+      name="DisplayMode"
+      value="TextAndIcon" />
+    <placeholder
+      name="Text"
+      value="New Incident"
+      resid="d875a2b8-c4b1-4c00-b564-188f9b7841b5" />
+    <placeholder
+      name="Image"
+      value="74a27a16-4dc1-45d4-b5a8-916b1376be68" />
+    <placeholder
+      name="Description"
+      value="New Incident Form"
+      resid="3c908598-8853-4de5-87d6-86037cf57e07" />
+    <placeholder
+      name="Behaviour"
+      value="Workflow" />
+    <placeholder
+      name="PagePK"
+      value="" />
+    <placeholder
+      name="Link"
+      value="" />
+    <placeholder
+      name="CommandRule"
+      value="" />
+    <placeholder
+      name="Url"
+      value="" />
+    <placeholder
+      name="Workflow"
+      value="ba5e37ac-b967-41e7-99de-016ddb2d1bc8" />
+    <placeholder
+      name="OpenInNewWindow"
+      value="False" />
+  </control>
+</form>

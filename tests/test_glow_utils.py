@@ -133,7 +133,7 @@ class GlowUtilTestCase(unittest.TestCase):
                     "color": "blue",
                     "display":[
                         "type", "name", "description",
-                        "entity", "counts"
+                        "warning", "entity", "counts"
                         ]}))
     @unpack
     def test_glow_file_object(self, first, second):

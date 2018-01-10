@@ -95,6 +95,19 @@ class NonYAMLTestCase(unittest.TestCase):
         target = list(parser.iterfind("Tile"))
         self.assertEqual(target, result)
 
+    @data([{"name":          "New Incident",
+            "description":   "New Incident Form",
+            "image":         "74a27a16-4dc1-45d4-b5a8-916b1376be68",
+            "formflow":      "ba5e37ac-b967-41e7-99de-016ddb2d1bc8"}])
+    def test_xml_new_tile(self, result):
+        """Test that parsing a Template xml object works
+        """
+        with open("tests/test_data/test_new_tile.xml") as xml_file:
+            xml_data = xml_file.read()
+        parser = XMLParser(xml_data)
+        target = list(parser.iterfind("control", "TIL"))
+        self.assertEqual(target, result)
+
     @data([{"guid":           "foo-bar-baz",
             "type":           "link",
             "link_type":      "conditional task",

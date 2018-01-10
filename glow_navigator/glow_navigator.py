@@ -146,15 +146,16 @@ class XMLParser(object):
     def __init__(self, xml):
         self.tree = ET.fromstring(xml.encode(encoding='utf-8'))
 
-    def iterfind(self, tag):
-        """Generator for elements matching tag
+    def iterfind(self, tag, code=None):
+        """Generator for elements matching tag with code
 
-        Find nodes with tag and return an appropriate
-        data structure (varies by tag)
+        Find nodes with tag of type code and return an
+        appropriate data structure (varies by tag)
         """
         for node in self.tree.iter():
             if self.remove_xmlns(node.tag) == tag:
-                yield self._data(node, tag)
+                if code is None or ("code" in node.attrib and node.attrib["code"] == code):
+                    yield self._data(node, tag)
 
     def properties_by_name(self, name):
         """Return a dict of property dicts from all elements
@@ -185,6 +186,8 @@ class XMLParser(object):
         """
         if tag in ("AsyncImage", "PlaceholdersContainer", "Tile"):
             return self._ph_dict(node)
+        if tag == "control":
+            return self._ph_dict(node, "placeholder")
         if tag == "ConditionalIfActivity":
             return self._con_dict(node)
         if tag == "form":
@@ -194,7 +197,7 @@ class XMLParser(object):
         if tag == "calculatedProperty" or tag == "simpleConditionExpression":
             return self._prop_dict(node)
 
-    def _ph_dict(self, node):
+    def _ph_dict(self, node, ph_name="Placeholder"):
         """Create the dictionary of Placeholders
 
         The nodes Placeholder element attributes
@@ -222,7 +225,7 @@ class XMLParser(object):
             "Workflow":             "formflow"
             }
 
-        ph_dict = self._convert_dict(node, "Placeholder")
+        ph_dict = self._convert_dict(node, ph_name)
         return self.build_dict(ph_dict, topics)
 
     def _grid_dict(self, node):
@@ -281,14 +284,16 @@ class XMLParser(object):
     def _convert_dict(self, node, tag):
         """Convert names/value pairs to dict
 
-        Converts Name:foo, Value:bar into foo:bar
+        Converts name:foo, value:bar into foo:bar
         """
         p_dict = {}
         for elem in node.iter():
             e_dict = elem.attrib
-            if (self.remove_xmlns(elem.tag) == tag
-                    and e_dict["Value"]):
-                p_dict[e_dict["Name"]] = e_dict["Value"]
+            if self.remove_xmlns(elem.tag) == tag:
+                if "value" in e_dict and e_dict["value"]:
+                    p_dict[e_dict["name"]] = e_dict["value"]
+                if "Value" in e_dict and e_dict["Value"]:
+                    p_dict[e_dict["Name"]] = e_dict["Value"]
         return p_dict
 
     @staticmethod
@@ -646,7 +651,7 @@ def add_template_to_graph(graph, template):
     def analyse_tiles():
         """Find all the tiles and creates edges to the objects they reference
         """
-        for tile in xml_parser.iterfind("Tile"):
+        for tile in xml_parser.iterfind("control", "TIL"):
             tile["type"] = "tile"
             if not "entity" in tile and template.entity:
                 tile["entity"] = template.entity
@@ -667,6 +672,8 @@ def add_template_to_graph(graph, template):
                 reference = "{}-{}".format(tile["property"], template.entity)
                 add_property_edge_if_exists(graph, template.guid, reference, tile)
 
+    # main template processing
+
     graph.add_node(template.guid, template.map())
 
     if template.data:
@@ -680,7 +687,6 @@ def add_template_to_graph(graph, template):
                 "link_type": "formflow reference"
             })
             graph.add_edge(template.guid, formflow, attr_dict=ff_dict)
-
 
         for component, comp_dict in xml_parser.properties_by_name("component").iteritems():
             comp_dict.update({
