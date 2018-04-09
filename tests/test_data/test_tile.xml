@@ -1,106 +1,61 @@
-<UserControl xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:meta="clr-namespace:CargoWise.Glow.UI.Infrastructure.MetaData;assembly=CargoWise.Glow.UI.Infrastructure" xmlns:common="clr-namespace:CargoWise.Glow.UI.Controls;assembly=CargoWise.Glow.UI.Controls" xmlns:infrastructure="clr-namespace:CargoWise.Glow.UI.Infrastructure;assembly=CargoWise.Glow.UI.Infrastructure">
-  <common:FormDesignableUserControl
-    infrastructure:DesignerExtension.FormFactor="DSK">
-    <Grid
-      Style="{StaticResource ShellDesignableGrid}"
-      AutomationProperties.ItemType="SHL"
-      infrastructure:DesignerExtension.ControlType="SHL"
-      infrastructure:DesignerExtension.DesignModeStylePrefix="Base"
-      infrastructure:GridExtensions.ContentSize="1050,798"
-      infrastructure:GridExtensions.BackgroundImagePk="{infrastructure:PlaceholderValue BackgroundImagePk}">
-      <GroupBox
-        Header="{infrastructure:PlaceholderValue Header}"
-        Style="{StaticResource DesignableGroupBox}"
-        AutomationProperties.ItemType="GRP"
-        infrastructure:DesignerExtension.ControlType="GRP"
-        infrastructure:DesignerExtension.Anchor="{infrastructure:PlaceholderValue Anchor}"
-        common:GroupBoxExtensions.HeaderDisplayMode="{infrastructure:PlaceholderValue HeaderDisplayMode}">
-        <infrastructure:ExtendedGrid
-          Style="{StaticResource GroupBoxInternalGrid}"
-          infrastructure:GridExtensions.ContentSize="800,84">
-          <common:Tile
-            Text="{infrastructure:PlaceholderValue Text}"
-            ImagePK="{infrastructure:PlaceholderValue Image}"
-            TileSize="{infrastructure:PlaceholderValue Size}"
-            TileDisplayMode="{infrastructure:PlaceholderValue DisplayMode}"
-            LinkPath="{infrastructure:PlaceholderValue Link}"
-            Url="{infrastructure:PlaceholderValue Url}"
-            Behaviour="{infrastructure:PlaceholderValue Behaviour}"
-            CommandRule="{infrastructure:PlaceholderValue CommandRule}"
-            Workflow="{infrastructure:PlaceholderValue Workflow}"
-            Page="{infrastructure:PlaceholderValue Page}"
-            Style="{StaticResource DesignableTile}"
-            AutomationProperties.ItemType="TIL"
-            infrastructure:DesignerExtension.ControlType="TIL"
-            infrastructure:DesignerExtension.Anchor="{infrastructure:PlaceholderValue Anchor}">
-            <infrastructure:PlaceholderExtensions.Placeholders>
-              <infrastructure:PlaceholdersContainer>
-                <infrastructure:Placeholder
-                  Name="Text"
-                  Value="Order Manager"
-                  ResKey="b7a3b8ec-3bf8-469a-a52b-4df9a5f9ad99" />
-                <infrastructure:Placeholder
-                  Name="Description"
-                  Value="Order Manager" />
-                <infrastructure:Placeholder
-                  Name="Image"
-                  Value="36df2ef9-58c0-4fe7-84e0-6f68065a5f32" />
-                <infrastructure:Placeholder
-                  Name="Behaviour"
-                  Value="Page" />
-                <infrastructure:Placeholder
-                  Name="Link"
-                  Value="" />
-                <infrastructure:Placeholder
-                  Name="Page"
-                  Value="PO Search List" />
-                <infrastructure:Placeholder
-                  Name="CommandRule"
-                  Value="" />
-                <infrastructure:Placeholder
-                  Name="Url"
-                  Value="" />
-                <infrastructure:Placeholder
-                  Name="Workflow"
-                  Value="" />
-                <infrastructure:Placeholder
-                  Name="Left"
-                  Value="0" />
-                <infrastructure:Placeholder
-                  Name="Width"
-                  Value="200" />
-                <infrastructure:Placeholder
-                  Name="Top"
-                  Value="0" />
-                <infrastructure:Placeholder
-                  Name="Height"
-                  Value="84" />
-                <infrastructure:Placeholder
-                  Name="Size"
-                  Value="Wide" />
-                <infrastructure:Placeholder
-                  Name="DisplayMode"
-                  Value="TextAndIcon" />
-                <infrastructure:Placeholder
-                  Name="OpenInNewWindow"
-                  Value="False" />
-                <infrastructure:Placeholder
-                  Name="CanBeHidden"
-                  Value="True" />
-                <infrastructure:Placeholder
-                  Name="DesignControlID"
-                  Value="0b2d53c7-6546-4bfe-8576-64bcd5844a03" />
-                <infrastructure:Placeholder
-                  Name="Anchor"
-                  Value="Left, Top" />
-              </infrastructure:PlaceholdersContainer>
-            </infrastructure:PlaceholderExtensions.Placeholders>
-          </common:Tile>
-        </infrastructure:ExtendedGrid>
-      </GroupBox>
-      </Grid>
-      <infrastructure:FormConfigurationExtensions.AdditionalPanels>
-        <infrastructure:ControlsContainer />
-      </infrastructure:FormConfigurationExtensions.AdditionalPanels>
-    </common:FormDesignableUserControl>
-  </UserControl>
+<form
+  id="3ff63fdd-e066-4aae-879f-b5ee43e3bf8d" xmlns="http://wisetechglobal.com/glow/2017/05/26/form.xsd">
+  <placeholder
+    name="BackgroundImagePk"
+    value="" />
+  <placeholder
+    name="FormLayout"
+    value="Splitview" />
+  <placeholder
+    name="ExpandPaths"
+    value="" />
+  <control
+    code="TIL"
+    id="a01955ac-122f-4050-a20a-3004b3949e85"
+    left="0"
+    top="0"
+    width="4"
+    height="4">
+    <placeholder
+      name="CanBeHidden"
+      value="True" />
+    <placeholder
+      name="Size"
+      value="Large" />
+    <placeholder
+      name="DisplayMode"
+      value="TextAndIcon" />
+    <placeholder
+      name="Text"
+      value="New Incident"
+      resid="d875a2b8-c4b1-4c00-b564-188f9b7841b5" />
+    <placeholder
+      name="Image"
+      value="74a27a16-4dc1-45d4-b5a8-916b1376be68" />
+    <placeholder
+      name="Description"
+      value="New Incident Form"
+      resid="3c908598-8853-4de5-87d6-86037cf57e07" />
+    <placeholder
+      name="Behaviour"
+      value="Workflow" />
+    <placeholder
+      name="PagePK"
+      value="" />
+    <placeholder
+      name="Link"
+      value="" />
+    <placeholder
+      name="CommandRule"
+      value="" />
+    <placeholder
+      name="Url"
+      value="" />
+    <placeholder
+      name="Workflow"
+      value="ba5e37ac-b967-41e7-99de-016ddb2d1bc8" />
+    <placeholder
+      name="OpenInNewWindow"
+      value="False" />
+  </control>
+</form>
