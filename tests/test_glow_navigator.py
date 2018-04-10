@@ -119,5 +119,50 @@ class NonYAMLTestCase(unittest.TestCase):
         test = BusinessTestParser("tests/test_data/business_test.feature", matchers)
         self.assertEqual(test.matches(match), set(result))
 
+
+class TemplateBase(unittest.TestCase):
+    """Set up and tear down for the template tests
+    """
+    def setUp(self):
+        self.template_data = load_yaml_file("tests/test_data/test_template_controls.yaml")
+        self.template = GlowObject(settings["template"], self.template_data)
+        self.parser = XMLParser(self.template.data)
+
+    def tearDown(self):
+        self.template_data = None
+        self.template = None
+        self.parser = None
+
+@ddt
+class TestTemplateControlsCase(TemplateBase):
+    """Unit tests requiring full template
+    """
+    @data(["c0529c69-e509-441a-af3c-9e32fcca6471"])
+    def test_background_image(self, result):
+        """Test that parsing locates background images
+        """
+        target = list(self.parser.iterfind("form"))
+        images = [d["image"] for d in target if "image" in d]
+        self.assertEqual(images, result)
+
+    @data(["02b88b26-d37c-4848-8d54-5e33846d37e4"])
+    def test_static_image(self, result):
+        """Test that parsing locates static images
+        """
+        target = list(self.parser.iterfind("control", "SIM"))
+        images = [d["image"] for d in target if "image" in d]
+        self.assertEqual(images, result)
+
+    @data(["348a333c-f878-443b-a231-df4516dc5399", "e99c2aac-f827-4a95-a325-a5ea6de73b80"])
+    def test_tile_image(self, result):
+        """Test that parsing locates tile images
+        """
+        target = list(self.parser.iterfind("control", "TIL"))
+        images = [d["image"] for d in target if "image" in d]
+        self.assertEqual(images, result)
+
+
+
+
 if __name__ == "__main__":
     unittest.main()

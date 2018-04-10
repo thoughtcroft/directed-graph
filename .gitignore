@@ -1,6 +1,7 @@
 # my local files
 DotNet/
 .DS_Store
+glow_graph.pickle
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

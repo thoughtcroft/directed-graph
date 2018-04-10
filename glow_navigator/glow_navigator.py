@@ -33,7 +33,6 @@ import networkx as nx
 from colorama import init
 
 from . glow_config import settings
-from . glow_templates import build_template_lookup
 from . glow_utils import (
     base_name,
     colorized,
@@ -56,7 +55,6 @@ IGNORE_TYPES = []
 EDGE_MATCH = False
 MINIMAL_DISPLAY = True
 CACHE_FILE = os.path.abspath("glow_graph.pickle")
-TEMPLATE_LOOKUP = {}
 GLOW_GRAPH = None
 
 
@@ -139,6 +137,7 @@ class BusinessTestParser(object):
         """
         return {"name": self.name, "type": "test"}
 
+
 class XMLParser(object):
     """Glow Template XML parser
     """
@@ -160,6 +159,7 @@ class XMLParser(object):
     def properties_by_name(self, name):
         """Return a dict of property dicts from all elements
         """
+        pass
         result_set = {}
         for n_dict in self.iterfind("PlaceholdersContainer"):
             if name in n_dict:
@@ -171,6 +171,7 @@ class XMLParser(object):
     def column_definitions(self):
         """Return properties referenced in column definitions
         """
+        pass
         result_set = set()
         for n_dict in self.iterfind("PlaceholdersContainer"):
             if "columns" in n_dict:
@@ -184,23 +185,21 @@ class XMLParser(object):
     def _data(self, node, tag):
         """Generate the object according to tag
         """
-        if tag in ("AsyncImage", "PlaceholdersContainer", "Tile"):
+        if tag in ("AsyncImage", "PlaceholdersContainer"):
             return self._ph_dict(node)
-        if tag == "control":
+        if tag in ("control", "form"):
             return self._ph_dict(node, "placeholder")
         if tag == "ConditionalIfActivity":
             return self._con_dict(node)
-        if tag == "form":
-            return self._form_dict(node)
         if tag == "Grid":
             return self._grid_dict(node)
         if tag == "calculatedProperty" or tag == "simpleConditionExpression":
             return self._prop_dict(node)
 
-    def _ph_dict(self, node, ph_name="Placeholder"):
-        """Create the dictionary of Placeholders
+    def _ph_dict(self, node, ph_name="placeholder"):
+        """Create the dictionary of placeholders
 
-        The nodes Placeholder element attributes
+        The nodes placeholder element attributes
         are remapped using the topics dict. Each
         {name: topic, value: amount} is turned into
         {topic: amount} if value has been set
@@ -232,7 +231,7 @@ class XMLParser(object):
         """Create the dictionary of the form Grid
 
         Need to get to the last element and
-        then return our normal Placeholder dictionary
+        then return our normal placeholder dictionary
         """
         g_dict = {}
         if list(node):
@@ -259,8 +258,9 @@ class XMLParser(object):
         """Create the dictionary for form dependent link
         """
         topics = {
-            "templateID": "template",
-            "path":       "property"
+            "templateID":        "template",
+            "path":              "property",
+            "BackgroundImagePk": "image"
             }
 
         f_dict = self.build_dict(node.attrib, topics)
@@ -348,8 +348,6 @@ def create_graph():
         elif glow_object.type == "template":
             add_template_to_graph(graph, glow_object)
 
-    global TEMPLATE_LOOKUP
-    TEMPLATE_LOOKUP = build_template_lookup()
     start_time = time.time()
     graph = nx.MultiDiGraph(name="Glow")
 
@@ -410,7 +408,7 @@ def create_graph():
                 for template in test.matches("template"):
                     graph.add_edge(
                         test.name,
-                        FORMSTEP_LOOKUP.get(template, TEMPLATE_LOOKUP.get(template, template)),
+                        FORMSTEP_LOOKUP.get(template, template),
                         attr_dict={
                             "type":      "link",
                             "link_type": "business test",
@@ -636,13 +634,13 @@ def add_template_to_graph(graph, template):
     def analyse_images():
         """Find all the image references and create edges
         """
-        for image in xml_parser.iterfind("AsyncImage"):
+        for image in xml_parser.iterfind("control", "SIM"):
             if "image" in image:
                 image["type"] = "link"
                 image["link_type"] = "static image"
                 graph.add_edge(template.guid, image["image"].lower(), attr_dict=image)
 
-        for image in xml_parser.iterfind("Grid"):
+        for image in xml_parser.iterfind("form"):
             if "image" in image:
                 image["type"] = "link"
                 image["link_type"] = "background image"
@@ -655,9 +653,6 @@ def add_template_to_graph(graph, template):
             tile["type"] = "tile"
             if not "entity" in tile and template.entity:
                 tile["entity"] = template.entity
-            if "template_name" in tile:
-                # need to correct for old style references before checking 'template'
-                update_template_reference(tile)
             if "template" in tile:
                 graph.add_edge(template.guid, tile["template"].lower(), attr_dict=tile)
             if "formflow" in tile:
@@ -751,20 +746,6 @@ def add_property_edge_if_exists(graph, parent, prop, attrs):
     base_prop = prop.rsplit(".")[-1]
     if graph.has_node(base_prop):
         graph.add_edge(parent, base_prop, attr_dict=attrs)
-
-def update_template_reference(attrs):
-    """Necessary to correct for old style of referencing
-
-    Referencing by page name instead of page PK causes
-    a problem as we may not have processed that template
-    """
-    if "template" in attrs:
-        return
-    try:
-        attrs["template"] = TEMPLATE_LOOKUP[attrs["template_name"]]
-        attrs["warning"] = "legacy template reference"
-    except KeyError as err_msg:
-        print("\n-> Error: '{}' looking up {}".format(err_msg, attrs))
 
 def add_entity_to_graph(graph, entity, file_name):
     """Add entity level information to the graph
