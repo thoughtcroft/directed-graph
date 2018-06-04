@@ -80,7 +80,7 @@ formflow:
 image:
   type:  image
   color: yellow
-  path: DotNet/SystemData/SystemData/StmMedia/*.yaml
+  path: DotNet/SystemData/SystemData/StmImage/*.yaml
   display:
     - name
     - type
@@ -173,6 +173,23 @@ property:
     - lookup_rule
     - entity
     - counts
+
+### Sounds ###
+sound:
+  type:  sound
+  color: yellow
+  path: DotNet/SystemData/SystemData/StmAudio/*.yaml
+  display:
+    - name
+    - type
+    - duration
+    - sound_type
+    - counts
+  fields:
+    guid:       PK
+    name:       Name
+    duration:   DurationInSeconds
+    sound_type: MediaType
 
 ### Task - formflow steps ###
 task:

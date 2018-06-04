@@ -156,39 +156,42 @@ class XMLParser(object):
                 if code is None or ("code" in node.attrib and node.attrib["code"] == code):
                     yield self._data(node, tag)
 
+    def iteritems(self, tag):
+        """Generator for obtaining attributes of elements matching tag
+        """
+        for node in self.tree.iter():
+            if self.remove_xmlns(node.tag) == tag:
+                yield node.attrib
+
     def properties_by_name(self, name):
         """Return a dict of property dicts from all elements
         """
-        pass
         result_set = {}
-        for n_dict in self.iterfind("PlaceholdersContainer"):
-            if name in n_dict:
+        for n_dict in self.iterfind("placeholder"):
+            if n_dict and name in n_dict:
                 field = n_dict[name]
                 n_dict.update(result_set.get(field, {}))
                 result_set[field] = n_dict
         return result_set
 
-    def column_definitions(self):
-        """Return properties referenced in column definitions
+    def search_list_properties(self, list_type, prop_type):
+        """Return properties referenced in search lists
         """
-        pass
         result_set = set()
-        for n_dict in self.iterfind("PlaceholdersContainer"):
-            if "columns" in n_dict:
+        for n_dict in self.iterfind("control", "SRL"):
+            if list_type in n_dict:
                 search_list = n_dict.get("search_list")
-                my_xml = XMLParser(n_dict["columns"])
+                my_xml = XMLParser(n_dict[list_type])
                 for my_node in my_xml.tree.iter():
-                    if self.remove_xmlns(my_node.tag) == "FieldName":
+                    if self.remove_xmlns(my_node.tag) == prop_type:
                         result_set.add((search_list, my_node.text))
         return result_set
 
     def _data(self, node, tag):
         """Generate the object according to tag
         """
-        if tag in ("AsyncImage", "PlaceholdersContainer"):
-            return self._ph_dict(node)
         if tag in ("control", "form"):
-            return self._ph_dict(node, "placeholder")
+            return self._ph_dict(node)
         if tag == "ConditionalIfActivity":
             return self._con_dict(node)
         if tag == "Grid":
@@ -205,23 +208,30 @@ class XMLParser(object):
         {topic: amount} if value has been set
         """
         topics = {
-            "BackgroundImagePk":    "image",
-            "BindingPath":          "property",
-            "CaptionOverride":      "caption",
-            "ColumnDefinitions":    "columns",
-            "CommandRule":          "command",
-            "Description":          "description",
-            "EntityType":           "entity",
-            "FilterType":           "search_list",
-            "Image":                "image",
-            "Link":                 "property",
-            "Page":                 "template_name",
-            "PagePK":               "template",
-            "SingleResultFormFlow": "formflow",
-            "TemplateID":           "component",
-            "Text":                 "name",
-            "Url":                  "url",
-            "Workflow":             "formflow"
+            "BackgroundImagePk":          "image",
+            "BindingPath":                "property",
+            "CaptionOverride":            "caption",
+            "ColumnDefinitions":          "columns",
+            "CommandRule":                "command",
+            "DefaultFilter":              "filters",
+            "DefaultSortFields":          "sortfields",
+            "Description":                "description",
+            "EntityType":                 "entity",
+            "FilterType":                 "search_list",
+            "FormFlowPKForFoundItem":     "formflow",
+            "FormFlowPKForNewItem":       "formflow",
+            "FormFlowPKForNoItem":        "formflow",
+            "FormFlowPKForMultipleItems": "formflow",
+            "Image":                      "image",
+            "Link":                       "property",
+            "NewWorkflow":                "formflow",
+            "PagePK":                     "template",
+            "SingleResultFormFlow":       "formflow",
+            "TemplateID":                 "component",
+            "Text":                       "name",
+            "Url":                        "url",
+            "VisibilityCondition":        "condition",
+            "Workflow":                   "formflow"
             }
 
         ph_dict = self._convert_dict(node, ph_name)
@@ -258,9 +268,11 @@ class XMLParser(object):
         """Create the dictionary for form dependent link
         """
         topics = {
-            "templateID":        "template",
+            "BackgroundImagePk": "image",
             "path":              "property",
-            "BackgroundImagePk": "image"
+            "templateID":        "template",
+            "templatePK":        "template",
+            "workflowID":        "formflow"
             }
 
         f_dict = self.build_dict(node.attrib, topics)
@@ -287,7 +299,7 @@ class XMLParser(object):
         Converts name:foo, value:bar into foo:bar
         """
         p_dict = {}
-        for elem in node.iter():
+        for elem in node.getchildren():
             e_dict = elem.attrib
             if self.remove_xmlns(elem.tag) == tag:
                 if "value" in e_dict and e_dict["value"]:
@@ -299,11 +311,18 @@ class XMLParser(object):
     @staticmethod
     def build_dict(attrib, topics):
         """Build a dictionary of topics using attributes
+
+        If there is more than one attribute, return a list
         """
         result = {}
         for key, field in topics.iteritems():
             if key in attrib:
-                result[field] = attrib[key]
+                try:
+                    result[field].append(attrib[key])
+                except AttributeError:
+                    result[field] = [result[field], attrib[key]]
+                except KeyError:
+                    result[field] = attrib[key]
         return result
 
     @staticmethod
@@ -341,7 +360,7 @@ def create_graph():
             add_condition_to_graph(graph, glow_object, file_name)
         elif glow_object.type == "formflow":
             add_formflow_to_graph(graph, glow_object)
-        elif glow_object.type == "image":
+        elif glow_object.type in  ("image", "sound"):
             graph.add_node(glow_object.guid, glow_object.map())
         elif glow_object.type == "module":
             add_module_to_graph(graph, glow_object)
@@ -351,7 +370,7 @@ def create_graph():
     start_time = time.time()
     graph = nx.MultiDiGraph(name="Glow")
 
-    load_list = ["entity", "metadata", "index", "image"]
+    load_list = ["entity", "metadata", "index", "image", "sound"]
     omit_list = load_list + ["test"]
 
     # add entity related stuff first so the command dict is available
@@ -720,7 +739,7 @@ def add_template_to_graph(graph, template):
             "type":      "link",
             "link_type": "column definition"
         }
-        for search_list, prop in xml_parser.column_definitions():
+        for search_list, prop in xml_parser.search_list_properties("columns", "FieldName"):
             if search_list == "Global":
                 index_name = prop.upper()
                 graph.add_node(index_name)
@@ -729,13 +748,14 @@ def add_template_to_graph(graph, template):
                 reference = "{}-{}".format(prop, template.entity)
                 add_property_edge_if_exists(graph, template.guid, reference, cd_dict)
 
-    if template.dependencies:
-        xml_parser = XMLParser(template.dependencies)
-        for form in xml_parser.iterfind("form"):
-            graph.add_edge(template.guid, form["template"].lower(), attr_dict=form)
-        for prop in xml_parser.iterfind("calculatedProperty"):
-            reference = "{}-{}".format(prop["property"], template.entity)
-            add_property_edge_if_exists(graph, template.guid, reference, prop)
+    # if template.dependencies:
+        # xml_parser = XMLParser(template.dependencies)
+        # for node in xml_parser.iterfind("form"):
+            # form = xml_parser._form_dict(node)
+            # graph.add_edge(template.guid, form["template"].lower(), attr_dict=form)
+        # for prop in xml_parser.iteritems("calculatedProperty"):
+            # reference = "{}-{}".format(prop["path"], template.entity)
+            # add_property_edge_if_exists(graph, template.guid, reference, prop)
 
 def add_property_edge_if_exists(graph, parent, prop, attrs):
     """Conditionally add reference to property if exists
@@ -757,11 +777,26 @@ def add_entity_to_graph(graph, entity, file_name):
     - adds calculated properties
     - looks for conditions referenced in rules
     """
+    def rule_details(rule):
+        rule_type = r_dict["rule_type"]
+        p_dict[rule_types[rule_type]] = rule["rule_name"]
+        e_dict = {
+            "name":      "name",
+            "entity":    entity.name,
+            "type":      "link",
+            "link_type": rule_types[rule_type]
+            }
+        graph.add_edge(entity.name, reference, attr_dict=e_dict)
+        if "conditions" in e_dict:
+            for condition in e_dict["conditions"]:
+                graph.add_edge(reference, condition.lower(), attr_dict=e_dict)
+
     topics = {
-        "ruleId":       "guid",
-        "ruleType":     "rule_type",
+        "conditionIds": "conditions",
         "methodName":   "rule_name",
-        "conditionIds": "conditions"
+        "ruleId":       "guid",
+        "ruleMappings": "rule_set",
+        "ruleType":     "rule_type"
         }
 
     rule_types = {
@@ -775,6 +810,7 @@ def add_entity_to_graph(graph, entity, file_name):
     if not entity.name:
         fix_entity_name(entity, file_name)
     graph.add_node(entity.name, entity.map())
+
     if entity.properties:
         for name, rules in entity.properties.iteritems():
             reference = "{}-{}".format(name, entity.name)
@@ -787,24 +823,15 @@ def add_entity_to_graph(graph, entity, file_name):
                 r_dict = XMLParser.build_dict(rule, topics)
                 r_dict["name"] = name
                 r_dict["entity"] = entity.name
-                e_dict = {
-                    "name":    "name",
-                    "entity":  entity.name,
-                    "type":    "link"
-                    }
                 rule_type = r_dict["rule_type"]
                 if rule_type == "CMD":
-                    e_dict["type"] = "command"
                     add_to_command_lookup(name, entity.name)
-                    break
-
-                p_dict[rule_types[rule_type]] = r_dict["rule_name"]
-                e_dict["link_type"] = rule_types[rule_type]
-                graph.add_edge(entity.name, reference, attr_dict=e_dict)
-
-                if "conditions" in e_dict:
-                    for condition in e_dict["conditions"]:
-                        graph.add_edge(reference, condition.lower(), attr_dict=e_dict)
+                elif "rule_set" in r_dict:
+                    for rule_set in r_dict["rule_set"]:
+                        rs_dict = XMLParser.build_dict(rule_set, topics)
+                        rule_details(rs_dict)
+                else:
+                    rule_details(r_dict)
             graph.add_node(reference, p_dict)
 
 def add_to_command_lookup(command, entity):

@@ -8,11 +8,13 @@
 import unittest
 from ddt import ddt, data, unpack
 
-from glow_navigator.glow_utils import load_yaml_file
+from glow_navigator.glow_utils import (
+    flatten,
+    load_yaml_file)
 from glow_navigator.glow_navigator import (
+    BusinessTestParser,
     GlowObject,
     settings,
-    BusinessTestParser,
     XMLParser)
 
 
@@ -61,14 +63,14 @@ class YAMLTestCase(YAMLBase):
         value = getattr(self.formflow, first)
         self.assertEqual(value, second)
 
-    @data({"name":      "My Test Formflow",
+    @data({"active":    True,
            "entity":    "My Test Entity",
-           "active": True,
-           "type":      "Formflow"})
+           "name":      "My Test Formflow",
+           "type":      "formflow"})
     def test_value_map(self, result):
         """Returns a dictionary of mapped values
         """
-        self.assertEqual(sorted(self.formflow.map()), sorted(result))
+        self.assertEqual(self.formflow.map(), result)
 
 @ddt
 class NonYAMLTestCase(unittest.TestCase):
@@ -126,22 +128,24 @@ class TemplateBase(unittest.TestCase):
     def setUp(self):
         self.template_data = load_yaml_file("tests/test_data/test_template_controls.yaml")
         self.template = GlowObject(settings["template"], self.template_data)
-        self.parser = XMLParser(self.template.data)
+        self.data_parser = XMLParser(self.template.data)
+        self.dep_parser = XMLParser(self.template.dependencies)
 
     def tearDown(self):
         self.template_data = None
         self.template = None
-        self.parser = None
+        self.data_parser = None
+        self.dep_parser = None
 
 @ddt
 class TestTemplateControlsCase(TemplateBase):
     """Unit tests requiring full template
     """
-    @data(["c0529c69-e509-441a-af3c-9e32fcca6471"])
+    @data(["75152bfd-3af6-4e10-b636-ed5f5218e8ec"])
     def test_background_image(self, result):
         """Test that parsing locates background images
         """
-        target = list(self.parser.iterfind("form"))
+        target = list(self.data_parser.iterfind("form"))
         images = [d["image"] for d in target if "image" in d]
         self.assertEqual(images, result)
 
@@ -149,20 +153,75 @@ class TestTemplateControlsCase(TemplateBase):
     def test_static_image(self, result):
         """Test that parsing locates static images
         """
-        target = list(self.parser.iterfind("control", "SIM"))
+        target = list(self.data_parser.iterfind("control", "SIM"))
         images = [d["image"] for d in target if "image" in d]
         self.assertEqual(images, result)
 
-    @data(["348a333c-f878-443b-a231-df4516dc5399", "e99c2aac-f827-4a95-a325-a5ea6de73b80"])
+    @data(["f6f7be75-dcd7-404d-9f98-047e6465989a", "0caf614b-4da8-45c3-99fa-45135f26e641"])
     def test_tile_image(self, result):
         """Test that parsing locates tile images
         """
-        target = list(self.parser.iterfind("control", "TIL"))
+        target = list(self.data_parser.iterfind("control", "TIL"))
         images = [d["image"] for d in target if "image" in d]
         self.assertEqual(images, result)
 
+    @data(['956e1bf6-27d4-4eef-8503-7e988a1a50c3', '0ead7e81-44d6-44e0-8957-3ed80c114383',
+           '416d4a12-2383-4953-bc81-67f416d358ee', '5de71bd6-5703-4674-a37b-765584060655',
+           '773406d0-1f65-4986-b9c7-f4e4f83c7484', 'b6dad538-b1c1-412c-a997-210508a9e878'])
+    def test_(self, result):
+        """Test that parsing locates formflows
+        """
+        target = list(self.data_parser.iterfind("control"))
+        formflows = [d["formflow"] for d in target if "formflow" in d]
+        self.assertEqual(flatten(formflows), result)
 
+    @data(["http://wazza-is-awesome.com"])
+    def test_tile_url(self, result):
+        """Test that parsing locates url on a tile
+        """
+        target = list(self.data_parser.iterfind("control", "TIL"))
+        urls = [d["url"] for d in target if "url" in d]
+        self.assertEqual(urls, result)
 
+    @data(['LTC_IsActive', 'LTC_ConnoteNumber', 'LTC_JobID'])
+    def test_grid_columns(self, result):
+        """Test that parsing locates column names on a search list
+        """
+        target = list(self.data_parser.search_list_properties("columns", "FieldName"))
+        columns = [c for x,c in target]
+        self.assertEqual(columns, result)
+
+    @data(["LTC_Status"])
+    def test_grid_filters(self, result):
+        """Test that parsing locates filter names on a search list
+        """
+        target = list(self.data_parser.search_list_properties("filters", "PropertyPath"))
+        filters = [c for x,c in target]
+        self.assertEqual(filters, result)
+
+    @data(["LTC_JobID"])
+    def test_grid_sort(self, result):
+        """Test that parsing locates sort fields on a search list
+        """
+        target = list(self.data_parser.search_list_properties("sortfields", "FieldName"))
+        sortfields = [c for x,c in target]
+        self.assertEqual(sortfields, result)
+
+    @data(["e71c3d72-5976-45b9-af6f-5ccf7a227af6", "5e7b738d-21ab-428e-a10b-db44dda7f35a"])
+    def test_template_dependencies(self, result):
+        """Test that parsing locates template dependencies
+        """
+        target = list(self.dep_parser.iteritems("form"))
+        templates = [d["templateID"] for d in target if "templateID" in d]
+        self.assertEqual(templates, result)
+
+    @data(["184b7395-c460-4655-89e2-fe61eb1a33e7"])
+    def test_formflow_dependencies(self, result):
+        """Test that parsing locates formflow dependencies
+        """
+        target = list(self.dep_parser.iteritems("workflow"))
+        formflows = [d["workflowID"] for d in target if "workflowID" in d]
+        self.assertEqual(formflows, result)
 
 if __name__ == "__main__":
     unittest.main()
