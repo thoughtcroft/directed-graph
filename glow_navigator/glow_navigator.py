@@ -781,7 +781,7 @@ def add_entity_to_graph(graph, entity, file_name):
         rule_type = r_dict["rule_type"]
         p_dict[rule_types[rule_type]] = rule["rule_name"]
         e_dict = {
-            "name":      "name",
+            "name":      name,
             "entity":    entity.name,
             "type":      "link",
             "link_type": rule_types[rule_type]

@@ -113,7 +113,7 @@ index:
 ### Link - generic for landing page and others ###
 link:
   type:  link
-  color: blue
+  color: grey
   display:
     - type
     - link_type
