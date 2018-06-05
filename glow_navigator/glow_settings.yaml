@@ -118,6 +118,7 @@ link:
     - type
     - link_type
     - name
+    - rule_name
 
 ### Entity Meta Data - properties of fields etc
 metadata:

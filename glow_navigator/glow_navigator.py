@@ -784,11 +784,12 @@ def add_entity_to_graph(graph, entity, file_name):
             "name":      name,
             "entity":    entity.name,
             "type":      "link",
-            "link_type": rule_types[rule_type]
+            "link_type": rule_types[rule_type],
+            "rule_name": rule["rule_name"]
             }
         graph.add_edge(entity.name, reference, attr_dict=e_dict)
-        if "conditions" in e_dict:
-            for condition in e_dict["conditions"]:
+        if "conditions" in rule:
+            for condition in rule["conditions"]:
                 graph.add_edge(reference, condition.lower(), attr_dict=e_dict)
 
     topics = {
