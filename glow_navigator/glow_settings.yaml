@@ -3,7 +3,7 @@
 ### Index ###
 caption:
   type:  caption
-  color: blue
+  color: cyan
   display:
     - name
     - type
@@ -14,7 +14,7 @@ caption:
 ### Condition ###
 condition:
   type:    condition
-  color:   red
+  color:   magenta
   display:
     - name
     - type
@@ -113,7 +113,7 @@ index:
 ### Link - generic for landing page and others ###
 link:
   type:  link
-  color: grey
+  color: cyan
   display:
     - type
     - link_type
@@ -194,7 +194,7 @@ sound:
 ### Task - formflow steps ###
 task:
   type:  task
-  color: blue
+  color: cyan
   display:
     - type
     - task
@@ -214,7 +214,7 @@ task:
 ### Template ( forms and pages) ###
 template:
   type:  template
-  color: cyan
+  color: red
   path:  DotNet/SystemData/SystemData/BPM/BPMForm/*.yaml
   display:
     - name
@@ -258,7 +258,7 @@ test:
 ### Tile - clickable on templates ###
 tile:
   type:  tile
-  color: blue
+  color: cyan
   display:
     - type
     - name
