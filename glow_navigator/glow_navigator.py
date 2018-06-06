@@ -190,7 +190,7 @@ class XMLParser(object):
     def _data(self, node, tag):
         """Generate the object according to tag
         """
-        if tag in ("control", "form"):
+        if tag in ("control", "form", "placeholder"):
             return self._ph_dict(node)
         if tag == "ConditionalIfActivity":
             return self._con_dict(node)
@@ -298,14 +298,19 @@ class XMLParser(object):
 
         Converts name:foo, value:bar into foo:bar
         """
+        def convert_elem(e_dict):
+            if "value" in e_dict and e_dict["value"]:
+                p_dict[e_dict["name"]] = e_dict["value"]
+            if "Value" in e_dict and e_dict["Value"]:
+                p_dict[e_dict["Name"]] = e_dict["Value"]
+
         p_dict = {}
-        for elem in node.getchildren():
-            e_dict = elem.attrib
-            if self.remove_xmlns(elem.tag) == tag:
-                if "value" in e_dict and e_dict["value"]:
-                    p_dict[e_dict["name"]] = e_dict["value"]
-                if "Value" in e_dict and e_dict["Value"]:
-                    p_dict[e_dict["Name"]] = e_dict["Value"]
+        if node.getchildren():
+            for elem in node.getchildren():
+                if self.remove_xmlns(elem.tag) == tag:
+                    convert_elem(elem.attrib)
+        else:
+            convert_elem(node.attrib)
         return p_dict
 
     @staticmethod

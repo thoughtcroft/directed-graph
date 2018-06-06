@@ -130,7 +130,7 @@ class GlowUtilTestCase(unittest.TestCase):
         self.assertEqual(base_name(first), second)
 
     @data(("tile", {"type": "tile",
-                    "color": "blue",
+                    "color": "cyan",
                     "display":[
                         "type", "name", "description",
                         "warning", "entity", "counts"

@@ -171,9 +171,8 @@ class TestTemplateControlsCase(TemplateBase):
     def test_(self, result):
         """Test that parsing locates formflows
         """
-        target = list(self.data_parser.iterfind("control"))
-        formflows = [d["formflow"] for d in target if "formflow" in d]
-        self.assertEqual(flatten(formflows), result)
+        target = list(self.data_parser.properties_by_name("formflow"))
+        self.assertEqual(sorted(target), sorted(result))
 
     @data(["http://wazza-is-awesome.com"])
     def test_tile_url(self, result):
