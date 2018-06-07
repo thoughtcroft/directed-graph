@@ -194,6 +194,8 @@ class XMLParser(object):
             return self._ph_dict(node)
         if tag == "ConditionalIfActivity":
             return self._con_dict(node)
+        if tag == "PlayAudioActivity":
+            return self._sound_dict(node)
         if tag == "Grid":
             return self._grid_dict(node)
         if tag == "calculatedProperty" or tag == "simpleConditionExpression":
@@ -263,6 +265,22 @@ class XMLParser(object):
         c_dict["type"] = "link"
         c_dict["link_type"] = "conditional task"
         return c_dict
+
+    def _sound_dict(self, node):
+        """Create the dictionary of the Sound
+
+        The PlayAudioActivity element refers to the sound
+        """
+        topics = {
+            "ResKey":       "guid",
+            "DisplayName":  "name",
+            "AudioPK":      "sound",
+            }
+
+        s_dict = self.build_dict(node.attrib, topics)
+        s_dict["type"] = "link"
+        s_dict["link_type"] = "play sound task"
+        return s_dict
 
     def _form_dict(self, node):
         """Create the dictionary for form dependent link
@@ -576,6 +594,8 @@ def add_formflow_to_graph(graph, formflow):
         xml_parser = XMLParser(formflow.data)
         for condition in xml_parser.iterfind("ConditionalIfActivity"):
             graph.add_edge(formflow.guid, condition["condition"].lower(), attr_dict=condition)
+        for sound in xml_parser.iterfind("PlayAudioActivity"):
+            graph.add_edge(formflow.guid, sound["sound"].lower(), attr_dict=sound)
 
 def add_task_edge_to_graph(graph, formflow, task):
     """Add an edge to the graph from a task object

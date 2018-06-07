@@ -63,6 +63,7 @@ formflow:
     - name
     - type
     - entity
+    - sounds
     - counts
   fields:
     guid:        VM_PK
@@ -75,6 +76,7 @@ formflow:
     tasks:       BPMTaskTmpls
     conditions:  BPMWorkflowTmplConds
     data:        VM_WorkflowDefinition
+    sounds:      VM_PlaySystemAudio
 
 ### Image ###
 image:
