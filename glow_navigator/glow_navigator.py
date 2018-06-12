@@ -192,13 +192,19 @@ class XMLParser(object):
         """
         if tag in ("control", "form", "placeholder"):
             return self._ph_dict(node)
-        if tag == "ConditionalIfActivity":
-            return self._con_dict(node)
+        if tag in ("ConditionalIfActivity", "ConditionalWhileActivity", "NativeTransitionInfo"):
+            return self._condition_dict(node)
+        if tag == "ShowFormActivity":
+            return self._template_dict(node)
+        if tag == "JumpToActivity":
+            return self._formflow_dict(node)
+        if tag == "RunCommandActivity":
+            return self._command_dict(node)
         if tag == "PlayAudioActivity":
             return self._sound_dict(node)
         if tag == "Grid":
             return self._grid_dict(node)
-        if tag == "calculatedProperty" or tag == "simpleConditionExpression":
+        if tag in ("calculatedProperty", "simpleConditionExpression"):
             return self._prop_dict(node)
 
     def _ph_dict(self, node, ph_name="placeholder"):
@@ -250,20 +256,74 @@ class XMLParser(object):
             g_dict = self._ph_dict(node[-1])
         return g_dict
 
-    def _con_dict(self, node):
+    def _formflow_dict(self, node):
+        """Create the dictionary of the Jump To
+
+        The JumpToActivity element refers to the formflow
+        """
+        topics = {
+            "ResKey":                   "guid",
+            "DisplayName":              "name",
+            "WorkflowTemplatePK":       "formflow"
+            }
+
+        f_dict = self.build_dict(node.attrib, topics)
+        f_dict["type"] = "link"
+        f_dict["link_type"] = "jump to formflow task"
+        return f_dict
+
+    def _template_dict(self, node):
+        """Create the dictionary of the Show Form
+
+        The ShowFormActivity element refers to the template
+        """
+        topics = {
+            "ResKey":       "guid",
+            "DisplayName":  "name",
+            "FormPK":       "template"
+            }
+
+        t_dict = self.build_dict(node.attrib, topics)
+        t_dict["type"] = "link"
+        t_dict["link_type"] = "show form task"
+        return t_dict
+
+    def _condition_dict(self, node):
         """Create the dictionary of the Condition
 
-        The ConditionalIfActivity element refers to the condition
+        The ConditionalIfActivity, ConditionalWhileActivity,
+        NativeTransitionInfo elements refer to conditions
         """
         topics = {
             "ResKey":            "guid",
             "DisplayName":       "name",
             "SelectedCondition": "condition",
+            "ConditionPK":       "condition",
+            "x:Key":             "name"
+            }
+
+        c_dict = self.build_dict(node.attrib, topics)
+        if c_dict["condition"] == "{x:Null}":
+            c_dict = None
+        else:
+            c_dict["type"] = "link"
+            c_dict["link_type"] = "conditional task"
+        return c_dict
+
+    def _command_dict(self, node):
+        """Create the dictionary of the Command
+
+        The RunCommandActivity element refers to the command
+        """
+        topics = {
+            "ResKey":       "guid",
+            "DisplayName":  "name",
+            "RuleName":     "command"
             }
 
         c_dict = self.build_dict(node.attrib, topics)
         c_dict["type"] = "link"
-        c_dict["link_type"] = "conditional task"
+        c_dict["link_type"] = "run command task"
         return c_dict
 
     def _sound_dict(self, node):
@@ -274,7 +334,7 @@ class XMLParser(object):
         topics = {
             "ResKey":       "guid",
             "DisplayName":  "name",
-            "AudioPK":      "sound",
+            "AudioPK":      "sound"
             }
 
         s_dict = self.build_dict(node.attrib, topics)
@@ -583,32 +643,25 @@ def add_formflow_to_graph(graph, formflow):
             }
             graph.add_edge(formflow.guid, c_dict["condition"], attr_dict=c_dict)
 
-    if formflow.tasks:
-        # build a dictionary so we can process conditions first
-        # and then add any that aren't subject to conditions
-        for task in formflow.tasks:
-            go_task = GlowObject(settings["task"], task)
-            add_task_edge_to_graph(graph, formflow, go_task)
-
     if formflow.data:
         xml_parser = XMLParser(formflow.data)
-        for condition in xml_parser.iterfind("ConditionalIfActivity"):
-            graph.add_edge(formflow.guid, condition["condition"].lower(), attr_dict=condition)
+        for template in xml_parser.iterfind("ShowFormActivity"):
+            template_id = template["template"].lower()
+            FORMSTEP_LOOKUP[template["name"]] = template_id
+            graph.add_edge(formflow.guid, template_id, attr_dict=template)
+        for ff in xml_parser.iterfind("JumpToActivity"):
+            graph.add_edge(formflow.guid, ff["formflow"].lower(), attr_dict=ff)
+        for condition_type in ("ConditionalIfActivity", "ConditionalWhileActivity", "NativeTransitionInfo"):
+            for condition in xml_parser.iterfind(condition_type):
+                if condition:
+                    graph.add_edge(formflow.guid, condition["condition"].lower(), attr_dict=condition)
         for sound in xml_parser.iterfind("PlayAudioActivity"):
             graph.add_edge(formflow.guid, sound["sound"].lower(), attr_dict=sound)
-
-def add_task_edge_to_graph(graph, formflow, task):
-    """Add an edge to the graph from a task object
-    """
-    if task.task == "FRM" and task.template:
-        graph.add_edge(formflow.guid, task.template.lower(), attr_dict=task.map())
-        FORMSTEP_LOOKUP[task.name] = task.template.lower()
-    elif task.task == "JMP" and task.formflow:
-        graph.add_edge(formflow.guid, task.formflow.lower(), attr_dict=task.map())
-    elif task.task == "RUN" and task.command:
-        entity = get_command_entity(task.command, formflow.entity)
-        command = "{}-{}".format(task.command, entity)
-        graph.add_edge(formflow.guid, command, attr_dict=task.map())
+        for command in xml_parser.iterfind("RunCommandActivity"):
+            command_name = command["command"]
+            entity = get_command_entity(command_name, formflow.entity)
+            command_full_name = "{}-{}".format(command_name, entity)
+            graph.add_edge(formflow.guid, command_full_name, attr_dict=command)
 
 def add_condition_to_graph(graph, condition, file_name):
     """Add a condition object to the graph

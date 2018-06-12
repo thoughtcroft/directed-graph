@@ -222,5 +222,63 @@ class TestTemplateControlsCase(TemplateBase):
         formflows = [d["workflowID"] for d in target if "workflowID" in d]
         self.assertEqual(formflows, result)
 
+class FormflowBase(unittest.TestCase):
+    """Set up and tear down for the formflow tests
+    """
+    def setUp(self):
+        self.formflow_data = load_yaml_file("tests/test_data/test_formflow_full.yaml")
+        self.formflow = GlowObject(settings["formflow"], self.formflow_data)
+        self.data_parser = XMLParser(self.formflow.data)
+
+    def tearDown(self):
+        self.formflow_data = None
+        self.formflow = None
+        self.data_parser = None
+
+@ddt
+class TestFormflowFullCase(FormflowBase):
+    """Unit tests requiring full template
+    """
+
+    @data(["ca2566d0-fd16-4236-91af-d987a88b4d17", "ace50353-700d-4bd2-80c3-1e8feb0782d7"])
+    def test_show_form_activities(self, result):
+        """Test detection of show form activity
+        """
+        target = list(self.data_parser.iterfind("ShowFormActivity"))
+        templates = [d["template"] for d in target if d and "template" in d]
+        self.assertEqual(templates, result)
+
+    @data(["3c4d6e19-969a-496a-b566-0a65b61ca6a2", "47b28283-ccd0-4d64-8fc4-c38dcf1432fb"])
+    def test_jump_to_activities(self, result):
+        """Test detection of jump to formflow  activity
+        """
+        target = list(self.data_parser.iterfind("JumpToActivity"))
+        formflows = [d["formflow"] for d in target if d and "formflow" in d]
+        self.assertEqual(formflows, result)
+
+    @data(["bdcb11df-387e-4172-a423-2a12916bd034"])
+    def test_conditional_while__activities(self, result):
+        """Test detection of conditional while activity
+        """
+        target = list(self.data_parser.iterfind("ConditionalWhileActivity"))
+        conditions = [d["condition"] for d in target if d and "condition" in d]
+        self.assertEqual(conditions, result)
+
+    @data(["3a238e21-9c1e-46fc-affd-c46ca861512b"])
+    def test_conditional_if__activities(self, result):
+        """Test detection of conditional activity
+        """
+        target = list(self.data_parser.iterfind("NativeTransitionInfo"))
+        conditions = [d["condition"] for d in target if d and "condition" in d]
+        self.assertEqual(conditions, result)
+
+    @data(["SetIsShipping"])
+    def test_run_command__activities(self, result):
+        """Test detection of run command activity
+        """
+        target = list(self.data_parser.iterfind("RunCommandActivity"))
+        commands = [d["command"] for d in target if d and "command" in d]
+        self.assertEqual(commands, result)
+
 if __name__ == "__main__":
     unittest.main()
