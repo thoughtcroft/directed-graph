@@ -773,13 +773,6 @@ def add_template_to_graph(graph, template):
         analyse_images()
         analyse_tiles()
 
-        for formflow, ff_dict in xml_parser.properties_by_name("formflow").iteritems():
-            ff_dict.update({
-                "type":      "link",
-                "link_type": "formflow reference"
-            })
-            graph.add_edge(template.guid, formflow, attr_dict=ff_dict)
-
         for component, comp_dict in xml_parser.properties_by_name("component").iteritems():
             comp_dict.update({
                 "type":      "link",

@@ -168,11 +168,19 @@ class TestTemplateControlsCase(TemplateBase):
     @data(['956e1bf6-27d4-4eef-8503-7e988a1a50c3', '0ead7e81-44d6-44e0-8957-3ed80c114383',
            '416d4a12-2383-4953-bc81-67f416d358ee', '5de71bd6-5703-4674-a37b-765584060655',
            '773406d0-1f65-4986-b9c7-f4e4f83c7484', 'b6dad538-b1c1-412c-a997-210508a9e878'])
-    def test_(self, result):
+    def test_template_formflow(self, result):
         """Test that parsing locates formflows
         """
         target = list(self.data_parser.properties_by_name("formflow"))
         self.assertEqual(sorted(target), sorted(result))
+
+    @data(['57bcf90e-be7c-4d7f-96a6-0268e2a92ee1'])
+    def test_tile_page(self, result):
+        """Test that parsing locates tile pages
+        """
+        target = list(self.data_parser.iterfind("control", "TIL"))
+        templates = [d["template"] for d in target if "template" in d]
+        self.assertEqual(templates, result)
 
     @data(["http://wazza-is-awesome.com"])
     def test_tile_url(self, result):
