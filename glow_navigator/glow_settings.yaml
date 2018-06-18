@@ -205,6 +205,15 @@ task:
     - name
     - entity
     - counts
+  fields:
+    guid:       VR_PK
+    name:       VR_Description
+    entity:     VR_DataContextOverride
+    task:       VR_Type
+    command:    VR_RuleName
+    formflow:   VR_VM_JumpToWorkflowTemplate
+    template:   VR_VZ_Form
+    active:     VR_IsActive
 
 ### Template ( forms and pages) ###
 template:

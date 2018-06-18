@@ -643,6 +643,11 @@ def add_formflow_to_graph(graph, formflow):
             }
             graph.add_edge(formflow.guid, c_dict["condition"], attr_dict=c_dict)
 
+    if formflow.tasks:
+        for task in formflow.tasks:
+            go_task = GlowObject(settings["task"], task)
+            add_task_edge_to_graph(graph, formflow, go_task)
+
     if formflow.data:
         xml_parser = XMLParser(formflow.data)
         for template in xml_parser.iterfind("ShowFormActivity"):
@@ -662,6 +667,19 @@ def add_formflow_to_graph(graph, formflow):
             entity = get_command_entity(command_name, formflow.entity)
             command_full_name = "{}-{}".format(command_name, entity)
             graph.add_edge(formflow.guid, command_full_name, attr_dict=command)
+
+def add_task_edge_to_graph(graph, formflow, task):
+    """Add an edge to the graph from a task object
+    """
+    if task.task == "FRM" and task.template:
+        graph.add_edge(formflow.guid, task.template.lower(), attr_dict=task.map())
+        FORMSTEP_LOOKUP[task.name] = task.template.lower()
+    elif task.task == "JMP" and task.formflow:
+        graph.add_edge(formflow.guid, task.formflow.lower(), attr_dict=task.map())
+    elif task.task == "RUN" and task.command:
+        entity = get_command_entity(task.command, formflow.entity)
+        command = "{}-{}".format(task.command, entity)
+        graph.add_edge(formflow.guid, command, attr_dict=task.map())
 
 def add_condition_to_graph(graph, condition, file_name):
     """Add a condition object to the graph
