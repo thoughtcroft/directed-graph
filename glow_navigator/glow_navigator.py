@@ -231,6 +231,7 @@ class XMLParser(object):
             "FormFlowPKForNoItem":        "formflow",
             "FormFlowPKForMultipleItems": "formflow",
             "Image":                      "image",
+            "ItemTemplateID":             "component",
             "Link":                       "property",
             "NewWorkflow":                "formflow",
             "PagePK":                     "template",
@@ -836,15 +837,6 @@ def add_template_to_graph(graph, template):
             else:
                 reference = "{}-{}".format(prop, template.entity)
                 add_property_edge_if_exists(graph, template.guid, reference, cd_dict)
-
-    # if template.dependencies:
-        # xml_parser = XMLParser(template.dependencies)
-        # for node in xml_parser.iterfind("form"):
-            # form = xml_parser._form_dict(node)
-            # graph.add_edge(template.guid, form["template"].lower(), attr_dict=form)
-        # for prop in xml_parser.iteritems("calculatedProperty"):
-            # reference = "{}-{}".format(prop["path"], template.entity)
-            # add_property_edge_if_exists(graph, template.guid, reference, prop)
 
 def add_property_edge_if_exists(graph, parent, prop, attrs):
     """Conditionally add reference to property if exists
