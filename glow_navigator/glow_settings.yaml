@@ -119,8 +119,9 @@ link:
   color: cyan
   display:
     - type
-    - link_type
     - name
+    - link_type
+    - ref_type
     - rule_name
 
 ### Entity Meta Data - properties of fields etc
@@ -255,7 +256,7 @@ test:
       - (And|Given|Then|When) I am on the (?!eDocs for This )(?P<template>.+) form
     formflow:
       - (And|Given|Then|When) I started activity (?P<formflow>.+)
-      - (And|Given|Then|When) I perform the (?!Delete|Customize Columns)(?P<formflow>.+) action
+      - (And|Given|Then|When) I perform the (?!Activate|Add|Customize Columns|Deactivate|Delete|eDocs|Notes)(?P<formflow>.+) action
     ignore:
       - (And|Given|Then|When) I am on the (?P<ignore>Platform Builder) landing page
 

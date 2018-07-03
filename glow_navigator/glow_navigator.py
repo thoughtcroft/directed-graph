@@ -507,6 +507,7 @@ def create_graph():
                         attr_dict={
                             "type":      "link",
                             "link_type": "business test",
+                            "ref_type":  "module",
                             "name":      module
                         })
                 for template in test.matches("template"):
@@ -516,6 +517,7 @@ def create_graph():
                         attr_dict={
                             "type":      "link",
                             "link_type": "business test",
+                            "ref_type":  "template",
                             "name":      template
                         })
                 for formflow in test.matches("formflow"):
@@ -525,6 +527,7 @@ def create_graph():
                         attr_dict={
                             "type":      "link",
                             "link_type": "business test",
+                            "ref_type":  "formflow",
                             "name":      formflow
                         })
     end_time = time.time()
@@ -724,8 +727,9 @@ def add_index_to_graph(graph, entity, file_name):
             index_name = index["name"].upper()
             graph.add_node(index_name, {"type": "index", "name": index["name"]})
             graph.add_edge(entity_name, index_name, attr_dict=index)
-            prop_ref = "{}-{}".format(index["property"], entity_name)
-            add_property_edge_if_exists(graph, index_name, prop_ref, i_dict)
+            if "property" in index:
+                prop_ref = "{}-{}".format(index["property"], entity_name)
+                add_property_edge_if_exists(graph, index_name, prop_ref, i_dict)
 
 def add_module_to_graph(graph, module):
     """Add a module object and its edges to the graph
@@ -785,7 +789,7 @@ def add_template_to_graph(graph, template):
                 add_property_edge_if_exists(graph, template.guid, reference, tile)
 
     # main template processing
-
+    FORMSTEP_LOOKUP[template.name] = template.guid
     graph.add_node(template.guid, template.map())
 
     if template.data:
@@ -946,7 +950,9 @@ def missing_nodes(graph):
     print()
     print("These nodes have no data:")
     for node in graph:
-        if "type" not in graph.node[node] and graph.in_degree(node) > 0:
+        if ("type" not in graph.node[node]
+            and not node.startswith("AttachToI")
+            and graph.in_degree(node) > 0):
             print()
             print(node)
             for caller in graph.predecessors(node):
