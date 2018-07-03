@@ -488,8 +488,9 @@ def create_graph():
                 process_glow_object()
 
     # finally add test which are not yaml and need their own parsing strategy
+    # also now in their own special folder which has to be computed from current
     attrs = settings["test"]
-    abs_path = os.path.abspath(attrs["path"])
+    abs_path = os.path.abspath(attrs["path"]).replace("Platform Builder", "BusinessTests")
     label_text = "{0:25}".format("Analysing {}s".format(attrs["type"]))
     with click.progressbar(
         glob.glob(abs_path),
