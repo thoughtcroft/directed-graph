@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Q&D script to run in dev env
+
+set -e
+
+cd ../glow_source
+rm -f glow_graph.pickle
+glow_navigator

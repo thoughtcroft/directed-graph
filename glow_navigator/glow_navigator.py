@@ -599,7 +599,7 @@ def add_metadata_to_graph(graph, metadata, file_name):
                 pc_dict = XMLParser.build_dict(prop, topics)
                 pc_dict["name"] = pc_dict.get("name", "").replace(" ", "")
                 pc_dict["type"] = "property"
-                pc_dict["rule_type"] = "Aggregate{}".format(pc_dict["method"])
+                pc_dict["calculated_property"] = "Aggregate{}".format(pc_dict["method"])
                 pc_dict["entity"] = metadata.name
                 if "property" in pc_dict:
                     pty = "{}.{}".format(name, pc_dict["property"])
@@ -850,8 +850,15 @@ def add_property_edge_if_exists(graph, parent, prop, attrs):
     'entity.collection.prop' checks against 'prop'
     """
     base_prop = prop.rsplit(".")[-1]
+    name_prop = base_prop.rsplit("-")[0]
     if graph.has_node(base_prop):
         graph.add_edge(parent, base_prop, attr_dict=attrs)
+    else:
+        query = "name: {}".format(name_prop)
+        nodes = select_nodes(graph, query)
+        if len(nodes) == 1:
+            graph.add_edge(parent, nodes[0][0], attr_dict=attrs)
+
 
 def add_entity_to_graph(graph, entity, file_name):
     """Add entity level information to the graph

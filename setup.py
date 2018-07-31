@@ -23,7 +23,7 @@ setup(
     # Versions should comply with PEP440.  For a discussion on single-sourcing
     # the version across setup.py and the project code, see
     # https://packaging.python.org/en/latest/single_source_version.html
-    version='1.22.15',
+    version='1.22.17',
 
     description='Tool for navigating Glow object relationships',
     long_description=long_description,
