@@ -610,7 +610,6 @@ def add_metadata_to_graph(graph, metadata, file_name):
                     "type":      "link",
                     "link_type": "aggregate rule"
                     }
-                graph.add_edge(reference, prop_name, attr_dict=pl_dict)
                 if "condition" in pc_dict:
                     graph.add_edge(prop_name, pc_dict["condition"].lower(), attr_dict=pl_dict)
 
@@ -623,13 +622,6 @@ def add_formflow_to_graph(graph, formflow):
     """
     graph.add_node(formflow.guid, formflow.map())
     FORMFLOW_LOOKUP[formflow.name] = formflow.guid
-
-    if formflow.entity:
-        f_dict = {
-            "type": "link",
-            "link_type": "formflow entity"
-        }
-        graph.add_edge(formflow.entity, formflow.guid, attr_dict=f_dict)
 
     if formflow.image:
         i_dict = {
@@ -726,7 +718,6 @@ def add_index_to_graph(graph, entity, file_name):
             index["type"] = "index"
             index_name = index["name"].upper()
             graph.add_node(index_name, {"type": "index", "name": index["name"]})
-            graph.add_edge(entity_name, index_name, attr_dict=index)
             if "property" in index:
                 prop_ref = "{}-{}".format(index["property"], entity_name)
                 add_property_edge_if_exists(graph, index_name, prop_ref, i_dict)
@@ -880,7 +871,7 @@ def add_entity_to_graph(graph, entity, file_name):
             "link_type": rule_types[rule_type],
             "rule_name": rule["rule_name"]
             }
-        graph.add_edge(entity.name, reference, attr_dict=e_dict)
+        # graph.add_edge(entity.name, reference, attr_dict=e_dict)
         if "conditions" in rule:
             for condition in rule["conditions"]:
                 graph.add_edge(reference, condition.lower(), attr_dict=e_dict)
