@@ -842,14 +842,27 @@ def add_property_edge_if_exists(graph, parent, prop, attrs):
     """
     base_prop = prop.rsplit(".")[-1]
     name_prop = base_prop.rsplit("-")[0]
-    if graph.has_node(base_prop):
+    if (name_prop.endswith(")")
+        or name_prop[2] == "_"
+        or name_prop[3] == "_"
+        or name_prop == "Addresses"):
+        return
+    elif graph.has_node(base_prop):
         graph.add_edge(parent, base_prop, attr_dict=attrs)
     else:
-        query = "name: {}".format(name_prop)
+        query = "name: {}\b".format(name_prop)
         nodes = select_nodes(graph, query)
         if len(nodes) == 1:
             graph.add_edge(parent, nodes[0][0], attr_dict=attrs)
-
+        elif len(nodes) > 1:
+            entity = prop.rsplit(".")[0]
+            if entity == "%":
+                entity = "GlowMacro"
+            match = "{}-I{}".format(name_prop, entity)
+            for node, _ in nodes:
+                if node == match:
+                    graph.add_edge(parent, node, attr_dict=attrs)
+                    return
 
 def add_entity_to_graph(graph, entity, file_name):
     """Add entity level information to the graph
@@ -1124,8 +1137,8 @@ def main():
 
     query = None
     nodes = []
-    try:
-        while True:
+    while True:
+        try:
             print()
             question = "Enter regex for selecting nodes"
             if nodes:
@@ -1145,19 +1158,19 @@ def main():
                     print_selected_node(GLOW_GRAPH, 0, nodes)
                 else:
                     print_nodes(nodes)
-
-    except KeyboardInterrupt:
-        pass
-    except Exception as err_msg:    # pylint: disable=broad-except
-        print()
-        print("-> Error occurred: {}".format(err_msg))
-    finally:
-        print()
-        print()
-        print("Thanks for using the Glow Navigator")
-        print()
-        print()
-        sys.exit()
+        except KeyboardInterrupt:
+            continue
+        except EOFError:
+            print()
+            print()
+            print("Thanks for using the Glow Navigator")
+            print()
+            print()
+            sys.exit()
+        except Exception as err_msg:    # pylint: disable=broad-except
+            print()
+            print("-> Error occurred: {}".format(err_msg))
+            print()
 
 if __name__ == "__main__":
     main()

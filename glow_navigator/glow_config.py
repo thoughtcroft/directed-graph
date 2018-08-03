@@ -62,6 +62,13 @@ is True to keep the level of detail reasonable.
 To regenerate the graph afresh use $$regen. By default, if a cached copy exists
 the graph will be reloaded from the cache. After being regenerated, it will be cached.
 
+
+Special keys
+------------
+
+  ctrl-c  terminate current output
+  ctrl-d  exit glow navigator
+
 """)
 
 settings_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'glow_settings.yaml')
