@@ -587,6 +587,8 @@ def add_metadata_to_graph(graph, metadata, file_name):
             "conditionId":   "condition"
             }
         for name, attrs in metadata.properties.iteritems():
+            if not attrs:
+                continue
             reference = "{}-{}".format(name, metadata.name)
             graph.add_node(
                 reference,
@@ -850,7 +852,7 @@ def add_property_edge_if_exists(graph, parent, prop, attrs):
     elif graph.has_node(base_prop):
         graph.add_edge(parent, base_prop, attr_dict=attrs)
     else:
-        query = "name: {}\b".format(name_prop)
+        query = r"name: {}\b".format(name_prop)
         nodes = select_nodes(graph, query)
         if len(nodes) == 1:
             graph.add_edge(parent, nodes[0][0], attr_dict=attrs)
@@ -911,12 +913,15 @@ def add_entity_to_graph(graph, entity, file_name):
 
     if entity.properties:
         for name, rules in entity.properties.iteritems():
+            if not rules:
+                continue
             reference = "{}-{}".format(name, entity.name)
             p_dict = {
                 "name":   name,
                 "entity": entity.name,
                 "type":   "property"
             }
+            graph.add_node(reference, p_dict)
             for rule in rules:
                 r_dict = XMLParser.build_dict(rule, topics)
                 r_dict["name"] = name
@@ -930,7 +935,6 @@ def add_entity_to_graph(graph, entity, file_name):
                         rule_details(rs_dict)
                 else:
                     rule_details(r_dict)
-            graph.add_node(reference, p_dict)
 
 def add_to_command_lookup(command, entity):
     """Add discovered command to lookup
