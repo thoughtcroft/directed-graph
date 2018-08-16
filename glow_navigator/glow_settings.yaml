@@ -176,6 +176,7 @@ property:
     - defaulting_rule
     - validation_rule
     - lookup_rule
+    - dependency
     - entity
     - counts
 

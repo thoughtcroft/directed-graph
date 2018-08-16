@@ -454,10 +454,42 @@ def create_graph():
     start_time = time.time()
     graph = nx.MultiDiGraph(name="Glow")
 
-    load_list = ["entity", "metadata", "index", "image", "sound"]
-    omit_list = load_list + ["test"]
+    base_list = ["entity", "metadata"]
+    load_list = ["index", "image", "sound"]
+    omit_list = base_list + load_list + ["test"]
 
     # add entity related stuff first so the command dict is available
+    for attrs in (glow_file_object(x) for x in base_list):
+        abs_path = os.path.abspath(attrs["path"])
+        label_text = "{0:25}".format("Loading {} list".format(attrs["type"]))
+        with click.progressbar(
+            glob.glob(abs_path),
+            label=label_text,
+            show_eta=False) as progress_bar:
+            for file_name in progress_bar:
+                values = load_yaml_file(file_name)
+                if not values:
+                    continue
+                glow_object = GlowObject(attrs, values)
+                process_glow_object()
+
+    # add interdependent links if we can intuit them
+    print()
+    with click.progressbar(
+        graph.nodes_iter(),
+        label="{0:25}".format("Analysing dependencies"),
+        show_eta=False) as progress_bar:
+        dep_dict = {
+            "type":      "link",
+            "link_type": "property dependency"
+        }
+        for node in progress_bar:
+            attrs = graph.node[node]
+            if 'dependency' in attrs:
+                add_property_edge_if_exists(graph, node, attrs['dependency'], dep_dict)
+
+    # load remaining reference objects
+    print()
     for attrs in (glow_file_object(x) for x in load_list):
         abs_path = os.path.abspath(attrs["path"])
         label_text = "{0:25}".format("Loading {} list".format(attrs["type"]))
@@ -472,6 +504,7 @@ def create_graph():
                 glow_object = GlowObject(attrs, values)
                 process_glow_object()
 
+    # analyse the remaining items
     print()
     for attrs in glow_file_objects(omit=omit_list):
         abs_path = os.path.abspath(attrs["path"])
@@ -605,7 +638,7 @@ def add_metadata_to_graph(graph, metadata, file_name):
                 pc_dict["entity"] = metadata.name
                 if "property" in pc_dict:
                     pty = "{}.{}".format(name, pc_dict["property"])
-                    pc_dict["property"] = pty
+                    pc_dict["dependency"] = pty
                 prop_name = "{}-{}".format(pc_dict["name"], metadata.name)
                 graph.add_node(prop_name, attr_dict=pc_dict)
                 pl_dict = {
@@ -860,11 +893,26 @@ def add_property_edge_if_exists(graph, parent, prop, attrs):
             entity = prop.rsplit(".")[0]
             if entity == "%":
                 entity = "GlowMacro"
+            # first try exact
             match = "{}-I{}".format(name_prop, entity)
             for node, _ in nodes:
                 if node == match:
                     graph.add_edge(parent, node, attr_dict=attrs)
                     return
+            # now try singular version
+            if match.endswith('s'):
+                match = match[:-1]
+                for node, _ in nodes:
+                    if node == match:
+                        graph.add_edge(parent, node, attr_dict=attrs)
+                        return
+            # now try derived types
+            match = match + '[['
+            for node, _ in nodes:
+                if node.startswith(match):
+                    graph.add_edge(parent, node, attr_dict=attrs)
+                    return
+
 
 def add_entity_to_graph(graph, entity, file_name):
     """Add entity level information to the graph
@@ -886,7 +934,6 @@ def add_entity_to_graph(graph, entity, file_name):
             "link_type": rule_types[rule_type],
             "rule_name": rule["rule_name"]
             }
-        # graph.add_edge(entity.name, reference, attr_dict=e_dict)
         if "conditions" in rule:
             for condition in rule["conditions"]:
                 graph.add_edge(reference, condition.lower(), attr_dict=e_dict)
