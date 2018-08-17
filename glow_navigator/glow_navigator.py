@@ -187,6 +187,17 @@ class XMLParser(object):
                         result_set.add((search_list, my_node.text))
         return result_set
 
+    def control_properties(self, attr, code=None):
+        """Return properties referenced from controls on a form
+        """
+        result_set = set()
+        for c_dict in self.iteritems("control"):
+            if code and c_dict.get("code", None) != code:
+                continue
+            if attr in c_dict:
+                result_set.add(c_dict[attr])
+        return result_set
+
     def _data(self, node, tag):
         """Generate the object according to tag
         """
@@ -474,10 +485,9 @@ def create_graph():
                 process_glow_object()
 
     # add interdependent links if we can intuit them
-    print()
     with click.progressbar(
         graph.nodes_iter(),
-        label="{0:25}".format("Analysing dependencies"),
+        label="{0:25}".format("Adding dependencies"),
         show_eta=False) as progress_bar:
         dep_dict = {
             "type":      "link",
@@ -489,7 +499,6 @@ def create_graph():
                 add_property_edge_if_exists(graph, node, attrs['dependency'], dep_dict)
 
     # load remaining reference objects
-    print()
     for attrs in (glow_file_object(x) for x in load_list):
         abs_path = os.path.abspath(attrs["path"])
         label_text = "{0:25}".format("Loading {} list".format(attrs["type"]))
@@ -505,7 +514,6 @@ def create_graph():
                 process_glow_object()
 
     # analyse the remaining items
-    print()
     for attrs in glow_file_objects(omit=omit_list):
         abs_path = os.path.abspath(attrs["path"])
         label_text = "{0:25}".format("Analysing {}s".format(attrs["type"]))
@@ -838,6 +846,14 @@ def add_template_to_graph(graph, template):
             })
             add_property_edge_if_exists(graph, template.guid, reference, prop_dict)
 
+        prop_dict = {
+            "type":      "link",
+            "link_type": "bound property"
+        }
+        for prop in xml_parser.control_properties("binding"):
+            reference = "{}-{}".format(prop, template.entity)
+            add_property_edge_if_exists(graph, template.guid, reference, prop_dict)
+
         cap_link = {
             "type":      "link",
             "link_type": "caption override"
@@ -878,8 +894,7 @@ def add_property_edge_if_exists(graph, parent, prop, attrs):
     base_prop = prop.rsplit(".")[-1]
     name_prop = base_prop.rsplit("-")[0]
     if (name_prop.endswith(")")
-        or name_prop[2] == "_"
-        or name_prop[3] == "_"
+        or "_" in name_prop
         or name_prop == "Addresses"):
         return
     elif graph.has_node(base_prop):
