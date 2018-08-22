@@ -770,14 +770,23 @@ def add_module_to_graph(graph, module):
     """
     graph.add_node(module.guid, module.map())
     if module.template:
-        m_dict = {
+        mt_dict = {
             "type":       "link",
             "link_type":  "module",
             "name":       "Landing Page",
             "template":   module.template
         }
-        graph.add_edge(module.guid, module.template.lower(), attr_dict=m_dict)
+        graph.add_edge(module.guid, module.template.lower(), attr_dict=mt_dict)
         MODULE_LOOKUP[module.code] = module.guid
+
+    if module.formflows:
+        mf_dict = {
+            "type":       "link",
+            "link_type":  "module",
+            "list_type":  module.list_type
+        }
+        for formflow in module.formflows:
+            graph.add_edge(module.guid, formflow, attr_dict=mf_dict)
 
 def add_template_to_graph(graph, template):
     """Add a template object and its edges to the graph
@@ -822,38 +831,9 @@ def add_template_to_graph(graph, template):
                 reference = "{}-{}".format(tile["property"], template.entity)
                 add_property_edge_if_exists(graph, template.guid, reference, tile)
 
-    # main template processing
-    FORMSTEP_LOOKUP[template.name] = template.guid
-    graph.add_node(template.guid, template.map())
-
-    if template.data:
-        xml_parser = XMLParser(template.data)
-        analyse_images()
-        analyse_tiles()
-
-        for component, comp_dict in xml_parser.properties_by_name("component").iteritems():
-            comp_dict.update({
-                "type":      "link",
-                "link_type": "component template"
-            })
-            graph.add_edge(template.guid, component.lower(), attr_dict=comp_dict)
-
-        for prop, prop_dict in xml_parser.properties_by_name("property").iteritems():
-            reference = "{}-{}".format(prop, template.entity)
-            prop_dict.update({
-                "type":      "link",
-                "link_type": "bound property"
-            })
-            add_property_edge_if_exists(graph, template.guid, reference, prop_dict)
-
-        prop_dict = {
-            "type":      "link",
-            "link_type": "bound property"
-        }
-        for prop in xml_parser.control_properties("binding"):
-            reference = "{}-{}".format(prop, template.entity)
-            add_property_edge_if_exists(graph, template.guid, reference, prop_dict)
-
+    def analyse_captions():
+        """Find all the caption over-rides on the form
+        """
         cap_link = {
             "type":      "link",
             "link_type": "caption override"
@@ -872,6 +852,35 @@ def add_template_to_graph(graph, template):
                 add_property_edge_if_exists(graph, template.guid, prop_ref, cap_link)
                 add_property_edge_if_exists(graph, cap_ref, prop_ref, cap_link)
 
+    def analyse_components():
+        """Find all the component references to other templates
+        """
+        for component, comp_dict in xml_parser.properties_by_name("component").iteritems():
+            comp_dict.update({
+                "type":      "link",
+                "link_type": "component template"
+            })
+            graph.add_edge(template.guid, component.lower(), attr_dict=comp_dict)
+
+    def analyse_bindings():
+        """Find references to properties in various forms
+        """
+        for prop, prop_dict in xml_parser.properties_by_name("property").iteritems():
+            reference = "{}-{}".format(prop, template.entity)
+            prop_dict.update({
+                "type":      "link",
+                "link_type": "bound property"
+            })
+            add_property_edge_if_exists(graph, template.guid, reference, prop_dict)
+
+        prop_dict = {
+            "type":      "link",
+            "link_type": "bound property"
+        }
+        for prop in xml_parser.control_properties("binding"):
+            reference = "{}-{}".format(prop, template.entity)
+            add_property_edge_if_exists(graph, template.guid, reference, prop_dict)
+
         cd_dict = {
             "type":      "link",
             "link_type": "column definition"
@@ -885,6 +894,31 @@ def add_template_to_graph(graph, template):
                 reference = "{}-{}".format(prop, template.entity)
                 add_property_edge_if_exists(graph, template.guid, reference, cd_dict)
 
+    def analyse_formflows():
+        """Find references to formflows from various controls
+        """
+        ff_dict = {
+            "type":      "link",
+            "link_type": "formflow reference"
+        }
+        for formflow, _ in xml_parser.properties_by_name("formflow").iteritems():
+            graph.add_edge(template.guid, formflow, attr_dict=ff_dict)
+
+
+    # main template processing
+    FORMSTEP_LOOKUP[template.name] = template.guid
+    graph.add_node(template.guid, template.map())
+
+    if template.data:
+        xml_parser = XMLParser(template.data)
+        analyse_images()
+        analyse_tiles()
+        analyse_captions()
+        analyse_components()
+        analyse_bindings()
+        analyse_formflows()
+
+
 def add_property_edge_if_exists(graph, parent, prop, attrs):
     """Conditionally add reference to property if exists
 
@@ -893,6 +927,8 @@ def add_property_edge_if_exists(graph, parent, prop, attrs):
     """
     base_prop = prop.rsplit(".")[-1]
     name_prop = base_prop.rsplit("-")[0]
+    prop_entity = prop.rsplit(".")[0]
+    parent_entity = parent.rsplit("-")[-1]
     if (name_prop.endswith(")")
         or "_" in name_prop
         or name_prop == "Addresses"):
@@ -905,26 +941,25 @@ def add_property_edge_if_exists(graph, parent, prop, attrs):
         if len(nodes) == 1:
             graph.add_edge(parent, nodes[0][0], attr_dict=attrs)
         elif len(nodes) > 1:
-            entity = prop.rsplit(".")[0]
-            if entity == "%":
-                entity = "GlowMacro"
+            if prop_entity == "%":
+                prop_entity = "GlowMacro"
             # first try exact
-            match = "{}-I{}".format(name_prop, entity)
+            match = "{}-I{}".format(name_prop, prop_entity)
             for node, _ in nodes:
                 if node == match:
                     graph.add_edge(parent, node, attr_dict=attrs)
                     return
-            # now try singular version
+            # try derived types (singular)
             if match.endswith('s'):
                 match = match[:-1]
-                for node, _ in nodes:
-                    if node == match:
-                        graph.add_edge(parent, node, attr_dict=attrs)
-                        return
-            # now try derived types
-            match = match + '[['
+            derived_match = match + '[[' + parent_entity + ']]'
             for node, _ in nodes:
-                if node.startswith(match):
+                if node == derived_match:
+                    graph.add_edge(parent, node, attr_dict=attrs)
+                    return
+            # now try singular version
+            for node, _ in nodes:
+                if node == match:
                     graph.add_edge(parent, node, attr_dict=attrs)
                     return
 

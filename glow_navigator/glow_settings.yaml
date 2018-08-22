@@ -64,20 +64,23 @@ formflow:
     - type
     - entity
     - sounds
+    - sub
     - counts
   fields:
-    guid:        VM_PK
-    name:        VM_Name
-    entity:      VM_EntityType
-    context:     VM_Context
-    form_factor: VM_FormFactor
     active:      VM_IsActive
-    usage:       VM_Usage
-    image:       VM_SK_Image
-    tasks:       BPMTaskTmpls
     conditions:  BPMWorkflowTmplConds
+    context:     VM_Context
     data:        VM_WorkflowDefinition
+    description: VM_Description
+    entity:      VM_EntityType
+    form_factor: VM_FormFactor
+    guid:        VM_PK
+    image:       VM_SK_Image
+    name:        VM_Name
     sounds:      VM_PlaySystemAudio
+    sub:         VM_IsSubWorkflow
+    tasks:       BPMTaskTmpls
+    usage:       VM_Usage
 
 ### Image ###
 image:
@@ -153,6 +156,7 @@ module:
     - login
     - security
     - mobile
+    - listtype
     - counts
   fields:
     guid:         V9_PK
@@ -164,6 +168,9 @@ module:
     web:          V9_WebPortalEnabled
     mobile:       V9_IsPermittedToDeviceUsers
     security:     V9_WebSecurityRight
+    formflows:    RestrictedWorkflows
+    listtype:     FormFlowRestrictionType
+
 
 ### Properties (calculated) ###
 property:
